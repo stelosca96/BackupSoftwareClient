@@ -16,6 +16,7 @@ private:
     bool synced = false;
 
 public:
+    //todo: togliere costruttore vuoto
     SyncedFile();
 
     SyncedFile(std::string path);
