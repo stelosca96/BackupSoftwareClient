@@ -16,9 +16,18 @@ private:
     bool synced = false;
 
 public:
-    SyncedFile(const std::string &path);
+    SyncedFile();
+
+    SyncedFile(std::string path);
+    SyncedFile(SyncedFile const &syncedFile);
+
     void calculate_hash();
     static std::optional<std::string> CalcSha256(std::string filename);
+    //todo: costruttore di copia e movimento
+
+
+    bool operator==(const SyncedFile &rhs) const;
+    bool operator!=(const SyncedFile &rhs) const;
 };
 
 

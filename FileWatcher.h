@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <filesystem>
 #include <functional>
+#include "SyncedFile.h"
 
 enum class FileStatus {created, modified, erased};
 
@@ -18,7 +19,7 @@ private:
     bool running = false;
     std::string path_to_watch;
     std::chrono::duration<int, std::milli> delay;
-    std::unordered_map<std::string, std::filesystem::file_time_type> children_paths_to_watch;
+    std::unordered_map<std::string, SyncedFile> files_to_watch;
     bool contains(const std::string &key);
 
 public:

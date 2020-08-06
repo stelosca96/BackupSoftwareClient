@@ -1,8 +1,11 @@
 #include <iostream>
 #include "FileWatcher.h"
+#include "SyncedFile.h"
 
 
 int main() {
+
+    std::cout << SyncedFile::CalcSha256("/home/stefano/CLionProjects/FileWatcher/test_dir/test.txt").value() << std::endl;
     // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
     FileWatcher fw{"/home/stefano/CLionProjects/FileWatcher/test_dir", std::chrono::milliseconds(5000)};
 

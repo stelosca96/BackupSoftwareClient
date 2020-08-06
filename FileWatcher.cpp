@@ -4,12 +4,13 @@
 
 #include <thread>
 #include "FileWatcher.h"
+#include "SyncedFile.h"
 
 // Check if "paths_" contains a given key
 // If your compiler supports C++20 use paths_.contains(key) instead of this function
 bool FileWatcher::contains(const std::string &key) {
-    auto el = this->children_paths_to_watch.find(key);
-    return el != this->children_paths_to_watch.end();
+    auto el = this->files_to_watch.find(key);
+    return el != this->files_to_watch.end();
 }
 
 FileWatcher::FileWatcher(const std::string &pathToWatch, const std::chrono::duration<int, std::milli> &delay)
@@ -17,7 +18,7 @@ FileWatcher::FileWatcher(const std::string &pathToWatch, const std::chrono::dura
     // Keep a record of files from the base directory and their last modification time
     // si potrebbe sostituire il valore di ultima modifica con l'hash code
     for(auto &file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
-        children_paths_to_watch[file.path().string()] = std::filesystem::last_write_time(file);
+        files_to_watch[file.path().string()] = SyncedFile(file.path().string());
     }
 }
 
@@ -26,11 +27,11 @@ void FileWatcher::start(const std::function<void(std::string, FileStatus)> &acti
     while(running) {
         // Wait for "delay" milliseconds
         std::this_thread::sleep_for(this->delay);
-        auto it = children_paths_to_watch.begin();
-        while (it != children_paths_to_watch.end()) {
+        auto it = files_to_watch.begin();
+        while (it != files_to_watch.end()) {
             if (!std::filesystem::exists(it->first)) {
                 action(it->first, FileStatus::erased);
-                it = children_paths_to_watch.erase(it);
+                it = files_to_watch.erase(it);
             }
             else {
                 it++;
@@ -41,13 +42,14 @@ void FileWatcher::start(const std::function<void(std::string, FileStatus)> &acti
             auto current_file_last_write_time = std::filesystem::last_write_time(file);
             // File creation
             if(!contains(file.path().string())) {
-                this->children_paths_to_watch[file.path().string()] = current_file_last_write_time;
+                this->files_to_watch[file.path().string()] = SyncedFile(file.path().string());
                 action(file.path().string(), FileStatus::created);
                 // File modification
             }
             else {
-                if(children_paths_to_watch[file.path().string()] != current_file_last_write_time) {
-                    children_paths_to_watch[file.path().string()] = current_file_last_write_time;
+                SyncedFile sf(file.path().string());
+                if(files_to_watch[file.path().string()] != sf) {
+                    files_to_watch[file.path().string()] = sf;
                     action(file.path().string(), FileStatus::modified);
                 }
             }

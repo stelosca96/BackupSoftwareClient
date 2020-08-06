@@ -9,7 +9,7 @@
 
 static const int K_READ_BUF_SIZE{ 1024 * 16 };
 
-SyncedFile::SyncedFile(const std::string &path) : path(path) {
+SyncedFile::SyncedFile(std::string path) : path(path) {
     calculate_hash();
 }
 
@@ -56,3 +56,22 @@ std::optional<std::string> SyncedFile::CalcSha256(std::string filename)
     }
     return shastr.str();
 }
+
+bool SyncedFile::operator==(const SyncedFile &rhs) const {
+    return path == rhs.path &&
+           hash == rhs.hash;
+}
+
+bool SyncedFile::operator!=(const SyncedFile &rhs) const {
+    return !(rhs == *this);
+}
+
+SyncedFile::SyncedFile(SyncedFile const &syncedFile) {
+    this->synced = syncedFile.synced;
+    this->hash = syncedFile.hash;
+    this->path = syncedFile.path;
+}
+
+SyncedFile::SyncedFile() {}
+
+
