@@ -12,19 +12,18 @@
 #include <functional>
 #include "SyncedFile.h"
 
-enum class FileStatus {created, modified, erased};
 
 class FileWatcher {
 private:
     bool running = false;
     std::string path_to_watch;
     std::chrono::duration<int, std::milli> delay;
-    std::unordered_map<std::string, SyncedFile> files_to_watch;
+    std::unordered_map<std::string, std::shared_ptr<SyncedFile>> files_to_watch;
     bool contains(const std::string &key);
 
 public:
     FileWatcher(const std::string &pathToWatch, const std::chrono::duration<int, std::milli> &delay);
-    void start(const std::function<void (std::string, FileStatus)> &action);
+    void start(const std::function<void (std::shared_ptr<SyncedFile>, FileStatus)> &action);
 };
 
 

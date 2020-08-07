@@ -17,12 +17,13 @@ FileWatcher::FileWatcher(const std::string &pathToWatch, const std::chrono::dura
         : path_to_watch(pathToWatch), delay(delay) {
     // Keep a record of files from the base directory and their last modification time
     // si potrebbe sostituire il valore di ultima modifica con l'hash code
+    // todo: l'inizializzazione andrà fatta leggendo i file della mappa da un db
     for(auto &file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
-        files_to_watch[file.path().string()] = SyncedFile(file.path().string());
+        files_to_watch[file.path().string()] = std::make_shared<SyncedFile>(file.path().string());
     }
 }
 
-void FileWatcher::start(const std::function<void(std::string, FileStatus)> &action) {
+void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, FileStatus)> &action) {
     this->running = true;
     while(running) {
         // Wait for "delay" milliseconds
@@ -30,27 +31,28 @@ void FileWatcher::start(const std::function<void(std::string, FileStatus)> &acti
         auto it = files_to_watch.begin();
         while (it != files_to_watch.end()) {
             if (!std::filesystem::exists(it->first)) {
-                action(it->first, FileStatus::erased);
+                SyncedFile sf(it->first);
+                action(std::make_shared<SyncedFile>(sf), FileStatus::erased);
                 it = files_to_watch.erase(it);
             }
-            else {
+            else
                 it++;
-            }
         }
         // Check if a file was created or modified
         for(auto &file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
             auto current_file_last_write_time = std::filesystem::last_write_time(file);
             // File creation
             if(!contains(file.path().string())) {
-                this->files_to_watch[file.path().string()] = SyncedFile(file.path().string());
-                action(file.path().string(), FileStatus::created);
+                std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(file.path().string());
+                this->files_to_watch[file.path().string()] = sfp;
+                action(sfp, FileStatus::created);
                 // File modification
             }
             else {
-                SyncedFile sf(file.path().string());
-                if(files_to_watch[file.path().string()] != sf) {
-                    files_to_watch[file.path().string()] = sf;
-                    action(file.path().string(), FileStatus::modified);
+                // controllo se due percorsi uguali hanno hash diverso il file è stato modificato
+                if(files_to_watch[file.path().string()]->getHash() != SyncedFile::CalcSha256(file.path().string())) {
+                    files_to_watch[file.path().string()]->calculate_hash();
+                    action(files_to_watch[file.path().string()], FileStatus::modified);
                 }
             }
         }
