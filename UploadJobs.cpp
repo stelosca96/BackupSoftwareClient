@@ -8,7 +8,7 @@
 
 std::shared_ptr<SyncedFile> UploadJobs::get() {
     std::unique_lock<std::mutex> lock(mutex);
-    cv.wait_for(lock, std::chrono::milliseconds(1000), [this](){return !queue.empty() || producer_ended;});
+    cv.wait_for(lock, std::chrono::milliseconds(3000), [this](){return !queue.empty() || producer_ended;});
     if(queue.empty())
         return nullptr;
     std::shared_ptr<SyncedFile> sfp = queue.front();
@@ -38,4 +38,9 @@ void UploadJobs::producer_end() {
 bool UploadJobs::producer_is_ended() {
     std::lock_guard lock(mutex);
     return producer_ended;
+}
+
+int UploadJobs::queue_size() {
+    std::lock_guard lock(mutex);
+    return queue.size();
 }

@@ -1,21 +1,42 @@
 #include <iostream>
+#include <thread>
 #include "FileWatcher.h"
 #include "SyncedFile.h"
 #include "UploadJobs.h"
+#include "Socket.h"
 
 UploadJobs uploadJobs;
 
-// serve veramente un thread pool per il client?
-void start_upload_pool(){
-
+void upload_to_server(){
+    // quando apro la connessione tcp?
+    // una per ogni file => grande spreco di risorse
+    // una e la tengo aperta => spreco di risorse a tenere una connessione aperta
+    // la apro e la tengo aperta finchè la coda è piena? Può avere senso ma è più complicata da implementare
+    // todo: gestire eccezioni ed eventualmente mutua esclusione
+    try {
+        Socket socket;
+        socket.connectToServer("127.0.0.1", 9091);
+        while (!uploadJobs.producer_is_ended()){
+            std::shared_ptr<SyncedFile> syncedFile = uploadJobs.get();
+            if(syncedFile!= nullptr)
+                socket.sendFile(syncedFile);
+        }
+        socket.closeConnection();
+    } catch (std::exception &exception) {
+        std::cout << exception.what() << std::endl;
+    }
 }
 
-void upload_to_server(std::shared_ptr<SyncedFile> sfp){
+// serve veramente un thread pool per il client?
+void start_upload_pool(){
+}
+
+void join_upload_pool(){
+}
+
+void add_to_queue(std::shared_ptr<SyncedFile> sfp){
     //todo: gestire sincronizzazione
     uploadJobs.put(sfp);
-
-    std::shared_ptr<SyncedFile> syncedFile = uploadJobs.get();
-    syncedFile->getJSON();
 }
 
 void file_watcher(){
@@ -43,13 +64,14 @@ void file_watcher(){
             default:
                 std::cout << "Error! Unknown file status.\n";
         }
-        upload_to_server(sfp);
+        add_to_queue(sfp);
     });
 }
 
 
 
 int main() {
-
+    std::thread t1(upload_to_server);
     file_watcher();
+    t1.join();
 }

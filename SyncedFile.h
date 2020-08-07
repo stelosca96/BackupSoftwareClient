@@ -16,8 +16,9 @@ private:
     std::string path;
     std::string hash = "";
     unsigned long file_size = 0;
-    bool is_file;
+    bool is_file{};
 
+    // todo: il fileStatus serve veramente? magari distinguere tra modificato/eliminato/non_valido
     FileStatus fileStatus = FileStatus::not_valid;
 
     // il file viene aggiunto alla coda di file da modificare,
@@ -31,29 +32,27 @@ public:
     //todo: togliere costruttore vuoto
     SyncedFile();
 
-    SyncedFile(std::string path);
+    explicit SyncedFile(std::string path);
     SyncedFile(std::string path, FileStatus fileStatus);
     SyncedFile(SyncedFile const &syncedFile);
 
     void update_file_data();
-    static std::string CalcSha256(std::string filename);
+    static std::string CalcSha256(const std::string& filename);
     //todo: costruttore di copia e movimento
     std::string to_string();
 
     bool operator==(const SyncedFile &rhs) const;
     bool operator!=(const SyncedFile &rhs) const;
 
-    const std::string &getPath() const;
+    [[nodiscard]] const std::string &getPath() const;
+    [[nodiscard]] const std::string &getHash() const;
+    [[nodiscard]] FileStatus getFileStatus() const;
+    [[nodiscard]] bool isSyncing() const;
+    [[nodiscard]] bool isFile() const;
 
-    const std::string &getHash() const;
-
-    FileStatus getFileStatus() const;
-
-    bool isSyncing() const;
-
-    void setSyncing(bool synching);
-
+    void setSyncing(bool syncing);
     std::string getJSON();
+
 };
 
 

@@ -3,7 +3,6 @@
 //
 #include <openssl/sha.h>
 #include <fstream>
-#include <sstream>
 #include <iomanip>
 #include <utility>
 #include "SyncedFile.h"
@@ -36,42 +35,32 @@ void SyncedFile::update_file_data() {
 }
 
 
-std::string SyncedFile::CalcSha256(std::string filename)
-{
+std::string SyncedFile::CalcSha256(const std::string& filename){
     // Initialize openssl
     SHA256_CTX context;
     if(!SHA256_Init(&context))
-    {
         return "";
-    }
 
     // Read file and update calculated SHA
     char buf[K_READ_BUF_SIZE];
     std::ifstream file(filename, std::ifstream::binary);
-    while (file.good())
-    {
+    while (file.good()){
         file.read(buf, sizeof(buf));
         if(!SHA256_Update(&context, buf, file.gcount()))
-        {
             return "";
-        }
     }
 
     // Get Final SHA
     unsigned char result[SHA256_DIGEST_LENGTH];
     if(!SHA256_Final(result, &context))
-    {
         return "";
-    }
 
     // Transform byte-array to string
-    std::stringstream shastr;
-    shastr << std::hex << std::setfill('0');
+    std::stringstream sha_str;
+    sha_str << std::hex << std::setfill('0');
     for (const auto &byte: result)
-    {
-        shastr << std::setw(2) << (int)byte;
-    }
-    return shastr.str();
+        sha_str << std::setw(2) << (int)byte;
+    return sha_str.str();
 }
 
 bool SyncedFile::operator==(const SyncedFile &rhs) const {
@@ -87,10 +76,13 @@ SyncedFile::SyncedFile(SyncedFile const &syncedFile) {
     this->fileStatus = syncedFile.fileStatus;
     this->hash = syncedFile.hash;
     this->path = syncedFile.path;
+    this->is_file = syncedFile.is_file;
 }
 
+// todo: da rimuovere, ma se lo togli non funziona nulla
 SyncedFile::SyncedFile() {
     fileStatus = FileStatus::not_valid;
+    is_file = false;
 }
 
 const std::string &SyncedFile::getPath() const {
@@ -125,11 +117,18 @@ std::string SyncedFile::getJSON() {
     // this->update_file_data();
     root.put("hash", this->hash);
     root.put("file_size", this->file_size);
+    root.put("is_dir", !this->is_file);
+
+    //todo: nel json posso aggiungere anche informazioni per l'autenticazione
 
     std::stringstream ss;
     pt::json_parser::write_json(ss, root);
     std::cout << ss.str() << std::endl;
     return ss.str();
+}
+
+bool SyncedFile::isFile() const {
+    return is_file;
 }
 
 

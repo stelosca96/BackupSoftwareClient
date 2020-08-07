@@ -25,6 +25,7 @@ public:
     void put(const std::shared_ptr<SyncedFile>& sfp);
     void producer_end();
     bool producer_is_ended();
+    int queue_size();
 };
 
 #endif //FILEWATCHER_UPLOADJOBS_H
