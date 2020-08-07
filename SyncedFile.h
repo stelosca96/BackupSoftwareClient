@@ -15,6 +15,9 @@ class SyncedFile {
 private:
     std::string path;
     std::string hash = "";
+    unsigned long file_size = 0;
+    bool is_file;
+
     FileStatus fileStatus = FileStatus::not_valid;
 
     // il file viene aggiunto alla coda di file da modificare,
@@ -32,7 +35,7 @@ public:
     SyncedFile(std::string path, FileStatus fileStatus);
     SyncedFile(SyncedFile const &syncedFile);
 
-    void calculate_hash();
+    void update_file_data();
     static std::string CalcSha256(std::string filename);
     //todo: costruttore di copia e movimento
     std::string to_string();
@@ -49,6 +52,8 @@ public:
     bool isSyncing() const;
 
     void setSyncing(bool synching);
+
+    std::string getJSON();
 };
 
 

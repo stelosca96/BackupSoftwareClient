@@ -13,6 +13,9 @@ void start_upload_pool(){
 void upload_to_server(std::shared_ptr<SyncedFile> sfp){
     //todo: gestire sincronizzazione
     uploadJobs.put(sfp);
+
+    std::shared_ptr<SyncedFile> syncedFile = uploadJobs.get();
+    syncedFile->getJSON();
 }
 
 void file_watcher(){

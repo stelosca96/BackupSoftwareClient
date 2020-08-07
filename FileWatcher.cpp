@@ -3,6 +3,7 @@
 //
 
 #include <thread>
+#include <iostream>
 #include "FileWatcher.h"
 #include "SyncedFile.h"
 
@@ -51,7 +52,7 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
             else {
                 // controllo se due percorsi uguali hanno hash diverso il file è stato modificato
                 if(files_to_watch[file.path().string()]->getHash() != SyncedFile::CalcSha256(file.path().string())) {
-                    files_to_watch[file.path().string()]->calculate_hash();
+                    files_to_watch[file.path().string()]->update_file_data();
                     action(files_to_watch[file.path().string()], FileStatus::modified);
                 }
             }

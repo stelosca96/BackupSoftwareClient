@@ -7,23 +7,31 @@
 #include <iomanip>
 #include <utility>
 #include "SyncedFile.h"
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <filesystem>
+#include <iostream>
+
+namespace pt = boost::property_tree;
 
 static const int K_READ_BUF_SIZE{ 1024 * 16 };
 
 SyncedFile::SyncedFile(std::string path) : path(std::move(path)) {
-    calculate_hash();
+    update_file_data();
 }
 
 SyncedFile::SyncedFile(std::string path, FileStatus fileStatus) : path(std::move(path)) {
-    calculate_hash();
+    update_file_data();
     this->fileStatus = fileStatus;
 }
 
-void SyncedFile::calculate_hash() {
+void SyncedFile::update_file_data() {
     std::string new_hash = CalcSha256(path);
     if(new_hash!= this->hash){
+        this->is_file = std::filesystem::is_regular_file(this->path);
         this->fileStatus = FileStatus::modified;
         this->hash = new_hash;
+        this->file_size = is_file ? std::filesystem::file_size(this->path) : 0;
     }
 }
 
@@ -107,6 +115,21 @@ bool SyncedFile::isSyncing() const {
 
 void SyncedFile::setSyncing(bool syncing) {
     SyncedFile::is_syncing = syncing;
+}
+
+std::string SyncedFile::getJSON() {
+    pt::ptree root;
+    root.put("path", this->path);
+
+    //todo: devo ricalcolare l'hash e la dimensione (nel caso il file sia stato modificato) o uso quello salvato?
+    // this->update_file_data();
+    root.put("hash", this->hash);
+    root.put("file_size", this->file_size);
+
+    std::stringstream ss;
+    pt::json_parser::write_json(ss, root);
+    std::cout << ss.str() << std::endl;
+    return ss.str();
 }
 
 
