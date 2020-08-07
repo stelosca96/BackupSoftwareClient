@@ -16,7 +16,7 @@ private:
     std::string path;
     std::string hash = "";
     unsigned long file_size = 0;
-    bool is_file{};
+    bool is_file;
 
     // todo: il fileStatus serve veramente? magari distinguere tra modificato/eliminato/non_valido
     FileStatus fileStatus = FileStatus::not_valid;
@@ -47,6 +47,7 @@ public:
     [[nodiscard]] const std::string &getPath() const;
     [[nodiscard]] const std::string &getHash() const;
     [[nodiscard]] FileStatus getFileStatus() const;
+    [[nodiscard]] unsigned long getFileSize() const;
     [[nodiscard]] bool isSyncing() const;
     [[nodiscard]] bool isFile() const;
 

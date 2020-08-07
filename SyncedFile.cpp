@@ -117,6 +117,7 @@ std::string SyncedFile::getJSON() {
     // this->update_file_data();
     root.put("hash", this->hash);
     root.put("file_size", this->file_size);
+    root.put("file_status", static_cast<int>(this->fileStatus));
     root.put("is_dir", !this->is_file);
 
     //todo: nel json posso aggiungere anche informazioni per l'autenticazione
@@ -129,6 +130,10 @@ std::string SyncedFile::getJSON() {
 
 bool SyncedFile::isFile() const {
     return is_file;
+}
+
+unsigned long SyncedFile::getFileSize() const {
+    return file_size;
 }
 
 

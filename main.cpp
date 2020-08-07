@@ -15,7 +15,7 @@ void upload_to_server(){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
         Socket socket;
-        socket.connectToServer("127.0.0.1", 9091);
+        socket.connectToServer("127.0.0.1", 9092);
         while (!uploadJobs.producer_is_ended()){
             std::shared_ptr<SyncedFile> syncedFile = uploadJobs.get();
             if(syncedFile!= nullptr)

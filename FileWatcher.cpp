@@ -32,7 +32,7 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
         auto it = files_to_watch.begin();
         while (it != files_to_watch.end()) {
             if (!std::filesystem::exists(it->first)) {
-                SyncedFile sf(it->first);
+                SyncedFile sf(it->first, FileStatus::erased);
                 action(std::make_shared<SyncedFile>(sf), FileStatus::erased);
                 it = files_to_watch.erase(it);
             }
@@ -44,7 +44,7 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
             auto current_file_last_write_time = std::filesystem::last_write_time(file);
             // File creation
             if(!contains(file.path().string())) {
-                std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(file.path().string());
+                std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(file.path().string(), FileStatus::created);
                 this->files_to_watch[file.path().string()] = sfp;
                 action(sfp, FileStatus::created);
                 // File modification
