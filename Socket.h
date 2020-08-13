@@ -34,6 +34,7 @@ public:
     void connectToServer(std::string address, int port);
     void closeConnection();
     void sendFile(const std::shared_ptr<SyncedFile>& syncedFile);
+    void sendJSON(const std::string &JSON);
 };
 
 

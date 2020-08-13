@@ -127,5 +127,9 @@ void Socket::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
 //    }
 }
 
+void Socket::sendJSON(const std::string &json) {
+    this->write(json.c_str(), json.size());
+}
+
 
 

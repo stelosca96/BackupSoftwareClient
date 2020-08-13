@@ -4,6 +4,7 @@
 #include "SyncedFile.h"
 #include "UploadJobs.h"
 #include "Socket.h"
+#include "User.h"
 
 UploadJobs uploadJobs;
 
@@ -15,7 +16,9 @@ void upload_to_server(){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
         Socket socket;
-        socket.connectToServer("127.0.0.1", 9092);
+        socket.connectToServer("127.0.0.1", 6015);
+        User user("ste", "ciao1234");
+        socket.sendJSON(user.getJSON());
         while (!uploadJobs.producer_is_ended()){
             std::shared_ptr<SyncedFile> syncedFile = uploadJobs.get();
             if(syncedFile!= nullptr)
