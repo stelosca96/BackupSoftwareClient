@@ -10,6 +10,7 @@
 #include <string>
 #include <memory>
 #include <optional>
+#include "SyncedFile.h"
 
 class Socket {
 private:
@@ -37,7 +38,7 @@ public:
     Socket &operator=(Socket &&other) noexcept ; // costruttore di copia per movimento
     void connectToServer(std::string address, int port);
     void closeConnection() const;
-    bool sendFile(const std::shared_ptr<SyncedFileServer>& syncedFile);
+    bool sendFile(const std::shared_ptr<SyncedFile>& syncedFile);
     std::optional<std::string> readJSON();
     std::optional<std::string> getFile(int size);
     void fileError();
@@ -53,6 +54,8 @@ public:
     std::optional<std::string> getResp();
 
     bool sendJSON(const std::string& JSON);
+
+    bool sockReadIsReady();
 };
 
 

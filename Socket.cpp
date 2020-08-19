@@ -71,15 +71,18 @@ void Socket::closeConnection() const {
 
 bool Socket::sendJSON(const std::string& JSON){
     fd_set write_fs;
-    if(!setWriteSelect(write_fs))
+    if(!setWriteSelect(write_fs)){
+        std::cout << "false" << std::endl;
         return false;
+    }
     ssize_t size_write = this->write(JSON.c_str(), JSON.size());
+    std::cout << "size write: " << size_write << std::endl;
 
     // se la dimensione letta è zero la socket è stata chiusa
     return (size_write==JSON.size());
 }
 
-bool Socket::sendFile(const std::shared_ptr<SyncedFileServer>& syncedFile) {
+bool Socket::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
     char buffer[N];
     fd_set write_fs;
     unsigned long size_read = 0;
@@ -154,16 +157,19 @@ bool Socket::setReadSelect(fd_set &read_fds){
 }
 
 bool Socket::setWriteSelect(fd_set &write_fds){
+    return true;
     FD_ZERO(&write_fds);
     if(this->socket_fd < 0)
-        return "";
+        return false;
     FD_SET(this->socket_fd, &write_fds);
     struct timeval timeout;
     timeout.tv_sec = Socket::timeout_value;
-    if(select(this->socket_fd, nullptr, &write_fds, nullptr, &timeout)<0)
+    if(select(this->socket_fd, nullptr, &write_fds, nullptr, &timeout)<=0)
         // select error: ritorno una stringa vuota così fallirà il checksum, oppure lancio un'eccezione?
-        return "";
-    return (FD_ISSET(this->socket_fd, &write_fds));
+        return false;
+    return true;
+    // todo: la fd_isset non funziona e non so il perchè
+//    return (FD_ISSET(this->socket_fd, &write_fds));
 }
 
 // genero un nome temporaneo per il file dato da tempo corrente + id thread
@@ -262,6 +268,20 @@ bool Socket::sendResp(std::string resp) {
     // se la dimensione letta è zero la socket è stata chiusa
     return (size_write!=0);
 }
+
+// se c'è qualcosa da leggere nella socket la FD_ISSET ritornerà true
+bool Socket::sockReadIsReady() {
+    fd_set read_fds;
+    FD_ZERO(&read_fds);
+    if(this->socket_fd < 0)
+        return "";
+    FD_SET(this->socket_fd, &read_fds);
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    if(select(this->socket_fd, &read_fds, nullptr, nullptr, &timeout)<0)
+        // select error: ritorno una stringa vuota così fallirà il checksum, oppure lancio un'eccezione?
+        throw std::runtime_error("Select error");
+    return (FD_ISSET(this->socket_fd, &read_fds));}
 
 
 

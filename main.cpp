@@ -16,13 +16,50 @@ void upload_to_server(){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
         Socket socket;
-        socket.connectToServer("127.0.0.1", 6015);
+        socket.connectToServer("127.0.0.1", 6016);
         User user("ste", "ciao1234");
+
+        // 1. invio le credenziali
         socket.sendJSON(user.getJSON());
+
+        // 2. se il server non risponde OK l'auth non è andata a buon fine e chiudo il programma
+        if(socket.getResp() != "OK")
+            return;
+
+        // continuo ad estrarre file dalla coda finchè il programma non termina
         while (!uploadJobs.producer_is_ended()){
             std::shared_ptr<SyncedFile> syncedFile = uploadJobs.get();
-            if(syncedFile!= nullptr)
-                socket.sendFile(syncedFile);
+
+            // la classe fileJobs ritorna un nullptr se la coda è vuota e il programma deve terminare
+            if(syncedFile!= nullptr){
+                // 3. invio il json del synced file
+                socket.sendJSON(syncedFile->getJSON());
+                std::optional<std::string> resp = socket.getResp();
+                if(resp.has_value()){
+                    // se la risposta è NO invio il file, altrimenti procedo
+                    if(resp.value() == "NO"){
+                        socket.sendFile(syncedFile);
+                        resp = socket.getResp();
+                        if(resp.has_value()){
+                            // "KO" si sono verificati errori, il client deve rieffettuare l'invio a partire dal punto 3.1
+                            // se si verificano errori riaggiungo il file alla lista dopo avere ricalcolato hash e size
+                            if(resp.value() == "KO"){
+                                syncedFile->update_file_data();
+                                uploadJobs.put(syncedFile);
+                            }
+                        }
+                        else {
+                            // todo: gestire errore
+                            std::cout << "Errore trasmissione" << std::endl;
+                        }
+                    }
+                } else {
+                    // todo: gestire errore
+                    std::cout << "Errore trasmissione" << std::endl;
+                }
+
+
+            }
         }
         socket.closeConnection();
     } catch (std::exception &exception) {
@@ -30,14 +67,7 @@ void upload_to_server(){
     }
 }
 
-// serve veramente un thread pool per il client?
-void start_upload_pool(){
-}
-
-void join_upload_pool(){
-}
-
-void add_to_queue(std::shared_ptr<SyncedFile> sfp){
+void add_to_queue(const std::shared_ptr<SyncedFile>& sfp){
     //todo: gestire sincronizzazione
     uploadJobs.put(sfp);
 }
@@ -70,7 +100,6 @@ void file_watcher(){
         add_to_queue(sfp);
     });
 }
-
 
 
 int main() {
