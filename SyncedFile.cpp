@@ -119,7 +119,7 @@ std::string SyncedFile::getJSON() {
     root.put("hash", this->hash);
     root.put("file_size", this->file_size);
     root.put("file_status", static_cast<int>(this->fileStatus));
-    root.put("is_dir", !this->is_file);
+    root.put("is_file", this->is_file);
 
     //todo: nel json posso aggiungere anche informazioni per l'autenticazione
 

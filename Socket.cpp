@@ -90,6 +90,7 @@ int Socket::Select(int max_fd, fd_set *read_set, fd_set *write_set, fd_set *exce
 
 void Socket::sendJSON(const std::string &JSON) {
     this->sendString(JSON);
+    std::cout << JSON << std::endl;
 }
 
 void Socket::sendString(const std::string& str){

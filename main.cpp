@@ -16,7 +16,7 @@ void upload_to_server(){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
         Socket socket;
-        socket.connectToServer("127.0.0.1", 6016);
+        socket.connectToServer("127.0.0.1", 6020);
         User user("ste", "ciao1234");
 
         // 1. invio le credenziali
@@ -105,20 +105,23 @@ void file_watcher(){
 }
 
 
-int main() {
-//    std::thread t1(upload_to_server);
-//    file_watcher();
-//    t1.join();
-    Socket socket;
-    socket.connectToServer("127.0.0.1", 6019);
-    SyncedFile sf("/home/stefano/CLionProjects/FileWatcher/test_dir/testdd.txt");
-    std::shared_ptr<SyncedFile> sfp(std::make_shared<SyncedFile>(sf));
-    std::cout << sfp->getJSON() << std::endl;
-    socket.sendFile(sfp);
-    std::optional<std::string> resp = socket.getResp();
-    if(resp.has_value())
-        std::cout << "RESP: " << resp.value() << std::endl;
-    else
-        std::cout << "RESP error" << std::endl;
+//void test_f(){
+//    Socket socket;
+//    socket.connectToServer("127.0.0.1", 6019);
+//    SyncedFile sf("/home/stefano/CLionProjects/FileWatcher/test_dir/testdd.txt");
+//    std::shared_ptr<SyncedFile> sfp(std::make_shared<SyncedFile>(sf));
+//    std::cout << sfp->getJSON() << std::endl;
+//    socket.sendFile(sfp);
+//    std::optional<std::string> resp = socket.getResp();
+//    if(resp.has_value())
+//        std::cout << "RESP: " << resp.value() << std::endl;
+//    else
+//        std::cout << "RESP error" << std::endl;
+//}
 
+
+int main() {
+    std::thread t1(upload_to_server);
+    file_watcher();
+    t1.join();
 }
