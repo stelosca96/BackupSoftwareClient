@@ -34,6 +34,7 @@ void upload_to_server(){
             if(syncedFile!= nullptr){
                 // 3. invio il json del synced file
                 socket.sendJSON(syncedFile->getJSON());
+                socket.sendFile(syncedFile);
                 std::optional<std::string> resp = socket.getResp();
                 if(resp.has_value()){
                     // se la risposta è NO invio il file, altrimenti procedo
@@ -61,6 +62,8 @@ void upload_to_server(){
 
             }
         }
+        std::cout << "Invio terminato" << std::endl;
+
         socket.closeConnection();
     } catch (std::exception &exception) {
         std::cout << exception.what() << std::endl;
@@ -103,7 +106,19 @@ void file_watcher(){
 
 
 int main() {
-    std::thread t1(upload_to_server);
-    file_watcher();
-    t1.join();
+//    std::thread t1(upload_to_server);
+//    file_watcher();
+//    t1.join();
+    Socket socket;
+    socket.connectToServer("127.0.0.1", 6019);
+    SyncedFile sf("/home/stefano/CLionProjects/FileWatcher/test_dir/testdd.txt");
+    std::shared_ptr<SyncedFile> sfp(std::make_shared<SyncedFile>(sf));
+    std::cout << sfp->getJSON() << std::endl;
+    socket.sendFile(sfp);
+    std::optional<std::string> resp = socket.getResp();
+    if(resp.has_value())
+        std::cout << "RESP: " << resp.value() << std::endl;
+    else
+        std::cout << "RESP error" << std::endl;
+
 }

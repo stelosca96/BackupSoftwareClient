@@ -26,7 +26,9 @@ private:
     void connect(struct sockaddr_in *addr, unsigned int len) const;
     bool setReadSelect(fd_set &read_fds);
     bool setWriteSelect(fd_set &write_fds);
-    bool sendResp(std::string resp);
+    bool sendString(const std::string &str);
+    static int Select(int max_fd, fd_set *read_set, fd_set *write_set, fd_set *except_set, struct timeval *timeout);
+    void setSelect(fd_set &fdSet, timeval &timeout);
 
 public:
     Socket &operator=(const Socket &) = delete; //elimino operatore di assegnazione
@@ -40,7 +42,7 @@ public:
     void closeConnection() const;
     bool sendFile(const std::shared_ptr<SyncedFile>& syncedFile);
     std::optional<std::string> readJSON();
-    std::optional<std::string> getFile(int size);
+    std::optional<std::string> getFile(unsigned long size);
     void fileError();
 
     [[nodiscard]] const std::string &getUsername() const;
@@ -56,6 +58,10 @@ public:
     bool sendJSON(const std::string& JSON);
 
     bool sockReadIsReady();
+
+
+
+
 };
 
 

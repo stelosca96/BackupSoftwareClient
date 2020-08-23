@@ -74,6 +74,7 @@ bool SyncedFile::operator!=(const SyncedFile &rhs) const {
 
 SyncedFile::SyncedFile(SyncedFile const &syncedFile) {
     this->fileStatus = syncedFile.fileStatus;
+    this->file_size = syncedFile.file_size;
     this->hash = syncedFile.hash;
     this->path = syncedFile.path;
     this->is_file = syncedFile.is_file;
@@ -124,7 +125,6 @@ std::string SyncedFile::getJSON() {
 
     std::stringstream ss;
     pt::json_parser::write_json(ss, root);
-    std::cout << ss.str() << std::endl;
     return ss.str();
 }
 
