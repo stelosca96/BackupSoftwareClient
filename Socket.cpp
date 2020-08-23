@@ -3,6 +3,9 @@
 //
 
 #include "Socket.h"
+#include "exceptions/socketException.h"
+#include "exceptions/dataException.h"
+#include "exceptions/filesystemException.h"
 #include <iostream>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -42,19 +45,19 @@ Socket& Socket::operator=(Socket &&other) noexcept {   // costruttore di copia p
 
 ssize_t Socket::read(char *buffer, size_t len) const{
     ssize_t res = recv(socket_fd, buffer, len, MSG_NOSIGNAL);
-    if(res < 0) throw std::runtime_error("Cannot receive from socket");
+    if(res < 0) throw socketException("Cannot receive from socket");
     return res;
 }
 
 ssize_t Socket::write(const char *buffer, size_t len) const{
     ssize_t res = send(socket_fd, buffer, len, MSG_NOSIGNAL);
-    if(res < 0) throw std::runtime_error("Cannot write to socket");
+    if(res < 0) throw socketException("Cannot write to socket");
     return res;
 }
 
 void Socket::connect(struct sockaddr_in *addr, unsigned int len) const{
     if(::connect(socket_fd, reinterpret_cast<struct sockaddr*>(addr), len) != 0)
-        throw std::runtime_error("Cannot connect to remote socket");
+        throw socketException("Cannot connect to remote socket");
 }
 
 void Socket::connectToServer(std::string address, int port) {
@@ -85,11 +88,11 @@ int Socket::Select(int max_fd, fd_set *read_set, fd_set *write_set, fd_set *exce
     return n;
 }
 
-bool Socket::sendJSON(const std::string &JSON) {
+void Socket::sendJSON(const std::string &JSON) {
     this->sendString(JSON);
 }
 
-bool Socket::sendString(const std::string& str){
+void Socket::sendString(const std::string& str){
     fd_set write_fs;
     ssize_t size_left = str.size();
     const char* ptr = str.c_str();
@@ -102,11 +105,11 @@ bool Socket::sendString(const std::string& str){
         timeout.tv_sec = Socket::timeout_value;
         if( (k = this->Select(FD_SETSIZE, nullptr, &write_fs, nullptr, &timeout))<0){
             std::cout << "Errore select" << std::endl;
-            return false;
+            throw socketException("Select error");
         }
         if(k<1 || !FD_ISSET(this->socket_fd, &write_fs)){
             std::cout << "Timeout scaduto" << std::endl;
-            return false;
+            throw socketException("Elapsed timeout");
         }
         std::cout << "Invio str" << std::endl;
 
@@ -117,15 +120,14 @@ bool Socket::sendString(const std::string& str){
                 continue; /* and call send() again */
             }
             else
-                return false;
+                throw socketException("Remote socket closed");
         }
         size_left -= size_written;
         ptr += size_written;
     }
-    return true;
 }
 
-bool Socket::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
+void Socket::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
     char buffer[N];
     fd_set write_fs;
     ssize_t size_read = 0;
@@ -151,8 +153,6 @@ bool Socket::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
         unsigned long size = 1;
         // ciclo finchè non ho letto tutto il file
         while (size_read < syncedFile->getFileSize() && size>0) {
-            if(!setWriteSelect(write_fs))
-                return false;
             file_to_send.read(reinterpret_cast<char *>(&buffer), sizeof(buffer));
             size = file_to_send.gcount();
             ssize_t size_left = size;
@@ -164,11 +164,11 @@ bool Socket::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
                 timeout.tv_sec = Socket::timeout_value;
                 if( (k = this->Select(FD_SETSIZE, nullptr, &write_fs, nullptr, &timeout))<0){
                     std::cout << "Errore select" << std::endl;
-                    return false;
+                    throw socketException("Select error");
                 }
                 if(k<1 || !FD_ISSET(this->socket_fd, &write_fs)){
                     std::cout << "Timeout scaduto" << std::endl;
-                    return false;
+                    throw socketException("Elapsed timeout");
                 }
                 std::cout << "Invio file" << std::endl;
 
@@ -179,7 +179,7 @@ bool Socket::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
                         continue; /* and call send() again */
                     }
                     else
-                        return false;
+                        throw socketException("Remote socket closed");
                 }
                 size_left -= size_written;
                 ptr += size_written;
@@ -190,10 +190,9 @@ bool Socket::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
         std::cout << "File chiuso" << std::endl;
         file_to_send.close();
     }
-    return true;
 }
 
-std::optional<std::string> Socket::readJSON() {
+std::string Socket::getJSON() {
     fd_set read_fds;
     bool continue_cycle = true;
     ssize_t l = 0;
@@ -207,18 +206,18 @@ std::optional<std::string> Socket::readJSON() {
         timeout.tv_sec = Socket::timeout_value;
         if( (k = this->Select(FD_SETSIZE, &read_fds, nullptr, nullptr, &timeout))<0){
             std::cout << "Errore select" << std::endl;
-            return std::nullopt;
+            throw socketException("Select error");
         }
         if(k<1 || !FD_ISSET(this->socket_fd, &read_fds)){
             std::cout << "Timeout scaduto" << std::endl;
-            return std::nullopt;
+            throw socketException("Elapsed timeout");
         }
         std::cout << "Ricevo json" << std::endl;
         ssize_t size_read = this->read(buffer+l, N-1-l);
 
         // se la dimensione letta è zero la socket è stata chiusa
         if(size_read==0)
-            return std::nullopt;
+            throw socketException("Remote socket closed");
         l += size_read;
 
         // todo: cambiare metodo di terminzione un file può contenere il carattere } quindi non funzionerebbe
@@ -231,39 +230,11 @@ std::optional<std::string> Socket::readJSON() {
     return buffer;
 }
 
-
-bool Socket::setReadSelect(fd_set &read_fds){
-    FD_ZERO(&read_fds);
-    if(this->socket_fd < 0)
-        return "";
-    FD_SET(this->socket_fd, &read_fds);
-    struct timeval timeout;
-    timeout.tv_sec = Socket::timeout_value;
-    if(select(FD_SETSIZE, &read_fds, nullptr, nullptr, &timeout)<0)
-        // select error: ritorno una stringa vuota così fallirà il checksum, oppure lancio un'eccezione?
-        return "";
-    return (FD_ISSET(this->socket_fd, &read_fds));
-}
 void Socket::setSelect(fd_set& cset, struct timeval& timeout){
     timeout.tv_sec = Socket::timeout_value;
     timeout.tv_usec = 0;
     FD_ZERO(&cset);
     FD_SET(this->socket_fd, &cset);
-}
-bool Socket::setWriteSelect(fd_set &write_fds){
-    return true;
-    FD_ZERO(&write_fds);
-    if(this->socket_fd < 0)
-        return false;
-    FD_SET(this->socket_fd, &write_fds);
-    struct timeval timeout;
-    timeout.tv_sec = Socket::timeout_value;
-    if(select(FD_SETSIZE, nullptr, &write_fds, nullptr, &timeout)<=0)
-        // select error: ritorno una stringa vuota così fallirà il checksum, oppure lancio un'eccezione?
-        return false;
-    return true;
-    // todo: la fd_isset non funziona e non so il perchè
-//    return (FD_ISSET(this->socket_fd, &write_fds));
 }
 
 // genero un nome temporaneo per il file dato da tempo corrente + id thread
@@ -276,7 +247,7 @@ std::string Socket::tempFilePath(){
     return ss.str();
 }
 
-std::optional<std::string> Socket::getFile(unsigned long size) {
+std::string Socket::getFile(unsigned long size) {
     fd_set read_fds;
     ssize_t l = 0;
     char buffer[N];
@@ -292,7 +263,7 @@ std::optional<std::string> Socket::getFile(unsigned long size) {
     // se non riesco ad aprire il file ritorno nullopt
     if(!file.is_open()){
         std::cout << "File not opened: " << file_path << std::endl;
-        return std::nullopt;
+        throw filesystemException("File not opened");
     }
 
     this->setSelect(read_fds, timeout);
@@ -302,17 +273,17 @@ std::optional<std::string> Socket::getFile(unsigned long size) {
         timeout.tv_sec = Socket::timeout_value;
         if( (k = this->Select(FD_SETSIZE, &read_fds, nullptr, nullptr, &timeout))<0){
             std::cout << "Errore select" << std::endl;
-            return std::nullopt;
+            throw socketException("Select error");
         }
         if(k<1 || !FD_ISSET(this->socket_fd, &read_fds)){
             std::cout << "Timeout scaduto" << std::endl;
-            return std::nullopt;
+            throw socketException("Elapsed timeout");
         }
         ssize_t size_read = this->read(buffer, N);
         // se la dimensione letta è zero la socket è stata chiusa
         if(size_read==0){
             std::cout << "Remote socket closed" << std::endl;
-            return std::nullopt;
+            throw socketException("Remote socket closed");
         }
         l += size_read;
         file.write(buffer, size_read);
@@ -332,20 +303,20 @@ void Socket::setUsername(std::string u) {
     this->username = std::move(u);
 }
 
-bool Socket::sendKOResp() {
-    return sendString("KO");
+void Socket::sendKOResp() {
+    sendString("KO");
 }
 
-bool Socket::sendOKResp() {
-    return sendString("OK");
+void Socket::sendOKResp() {
+    sendString("OK");
 }
 
-bool Socket::sendNOResp() {
-    return sendString("NO");
+void Socket::sendNOResp() {
+    sendString("NO");
 }
 
 // attendo la ricezione di uno stato tra {OK, NO, KO}
-std::optional<std::string> Socket::getResp() {
+std::string Socket::getResp() {
     fd_set read_fds;
     ssize_t l = 0;
     char buffer[N];
@@ -358,17 +329,17 @@ std::optional<std::string> Socket::getResp() {
         timeout.tv_sec = Socket::timeout_value;
         if( (k = this->Select(FD_SETSIZE, &read_fds, nullptr, nullptr, &timeout))<0){
             std::cout << "Errore select" << std::endl;
-            return std::nullopt;
+            throw socketException("Select error");
         }
         if(k<1 || !FD_ISSET(this->socket_fd, &read_fds)){
             std::cout << "Timeout scaduto" << std::endl;
-            return std::nullopt;
+            throw socketException("Elapsed timeout");
         }
         ssize_t size_read = this->read(buffer, N);
         // se la dimensione letta è zero la socket è stata chiusa
         if(size_read==0){
             std::cout << "Remote socket closed" << std::endl;
-            return std::nullopt;
+            throw socketException("Remote socket closed");
         }
         l += size_read;
     }
@@ -378,9 +349,7 @@ std::optional<std::string> Socket::getResp() {
     // controllo se il valore ricevuto è tra quelli ammissibili, se non lo è ritorno un nullpt
     if(value != "OK" && value != "NO" && value != "KO"){
         std::cout << "Not valid resp" << std::endl;
-
-        return std::nullopt;
-
+        throw dataException("Not valid response");
     }
     return value;
 }
@@ -390,7 +359,7 @@ bool Socket::sockReadIsReady() {
     fd_set read_fds;
     FD_ZERO(&read_fds);
     if(this->socket_fd < 0)
-        return "";
+        return false;
     FD_SET(this->socket_fd, &read_fds);
     struct timeval timeout;
     timeout.tv_sec = 0;
