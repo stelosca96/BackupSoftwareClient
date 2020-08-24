@@ -6,7 +6,6 @@
 #include <iomanip>
 #include <utility>
 #include "SyncedFile.h"
-#include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <filesystem>
 #include <iostream>
@@ -25,6 +24,7 @@ SyncedFile::SyncedFile(std::string path, FileStatus fileStatus) : path(std::move
 }
 
 void SyncedFile::update_file_data() {
+    // todo: se il file non esiste marchiarlo come eraseds
     std::string new_hash = CalcSha256(path);
     if(new_hash!= this->hash){
         this->is_file = std::filesystem::is_regular_file(this->path);
@@ -110,7 +110,7 @@ void SyncedFile::setSyncing(bool syncing) {
     SyncedFile::is_syncing = syncing;
 }
 
-std::string SyncedFile::getJSON() {
+pt::ptree SyncedFile::getPtree(){
     pt::ptree root;
     root.put("path", this->path);
 
@@ -120,8 +120,11 @@ std::string SyncedFile::getJSON() {
     root.put("file_size", this->file_size);
     root.put("file_status", static_cast<int>(this->fileStatus));
     root.put("is_file", this->is_file);
+    return root;
+}
 
-    //todo: nel json posso aggiungere anche informazioni per l'autenticazione
+std::string SyncedFile::getJSON() {
+    pt::ptree root = this->getPtree();
 
     std::stringstream ss;
     pt::json_parser::write_json(ss, root);
@@ -134,6 +137,24 @@ bool SyncedFile::isFile() const {
 
 unsigned long SyncedFile::getFileSize() const {
     return file_size;
+}
+
+SyncedFile::SyncedFile(const std::string& path, const std::string& JSON) {
+    std::stringstream ss(JSON);
+
+    boost::property_tree::ptree root;
+    boost::property_tree::read_json(ss, root);
+    this->hash = root.get_child("hash").data();
+
+    this->path = root.get_child("path").data();
+
+    // If no conversion could be performed, an invalid_argument exception is thrown.
+    this->file_size = std::stoul(root.get_child("file_size").data());
+
+    // If no conversion could be performed, an invalid_argument exception is thrown.
+    this->fileStatus = static_cast<FileStatus>(std::stoi(root.get_child("file_status").data()));
+
+    this->is_file = root.get_child("is_file").data()=="true";
 }
 
 

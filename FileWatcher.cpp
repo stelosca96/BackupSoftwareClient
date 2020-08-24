@@ -6,6 +6,10 @@
 #include <iostream>
 #include "FileWatcher.h"
 #include "SyncedFile.h"
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/json_parser.hpp>
+
+namespace pt = boost::property_tree;
 
 // Check if "paths_" contains a given key
 // If your compiler supports C++20 use paths_.contains(key) instead of this function
@@ -19,8 +23,17 @@ FileWatcher::FileWatcher(const std::string &pathToWatch, const std::chrono::dura
     // Keep a record of files from the base directory and their last modification time
     // si potrebbe sostituire il valore di ultima modifica con l'hash code
     // todo: l'inizializzazione andrà fatta leggendo i file della mappa da un db
-    for(auto &file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
-        files_to_watch[file.path().string()] = std::make_shared<SyncedFile>(file.path().string());
+
+    try {
+        loadMap();
+    } catch (std::runtime_error &error) {
+        std::cout << error.what() << std::endl;
+        // se si verifica un problema nella lettura del file scansiono la cartella
+        for(auto &file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
+            files_to_watch[file.path().string()] = std::make_shared<SyncedFile>(file.path().string());
+        }
+        // todo: gestire eccezione
+        saveMap();
     }
 }
 
@@ -35,6 +48,7 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
                 SyncedFile sf(it->first, FileStatus::erased);
                 action(std::make_shared<SyncedFile>(sf), FileStatus::erased);
                 it = files_to_watch.erase(it);
+                saveMap();
             }
             else
                 it++;
@@ -47,6 +61,7 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
                 std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(file.path().string(), FileStatus::created);
                 this->files_to_watch[file.path().string()] = sfp;
                 action(sfp, FileStatus::created);
+                saveMap();
                 // File modification
             }
             else {
@@ -54,8 +69,30 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
                 if(files_to_watch[file.path().string()]->getHash() != SyncedFile::CalcSha256(file.path().string())) {
                     files_to_watch[file.path().string()]->update_file_data();
                     action(files_to_watch[file.path().string()], FileStatus::modified);
+                    saveMap();
                 }
             }
         }
+    }
+}
+
+void FileWatcher::saveMap() {
+    pt::ptree pt;
+    for(auto const& [key, val] : files_to_watch){
+        std::cout << val->getPath() << std::endl;
+        pt.push_back(std::make_pair(key, val->getPtree()));
+    }
+    pt::json_parser::write_json("synced_maps.json", pt);
+}
+
+void FileWatcher::loadMap() {
+    pt::ptree root;
+    pt::read_json("synced_maps.json", root);
+    std::cout << "File loaded :" << std::endl;
+    for(const auto& p: root){
+        std::stringstream ss;
+        pt::json_parser::write_json(ss, p.second);
+        this->files_to_watch[p.first] = std::make_shared<SyncedFile>(p.first, ss.str());
+        std::cout << p.first << std::endl;
     }
 }

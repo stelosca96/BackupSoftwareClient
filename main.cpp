@@ -5,6 +5,9 @@
 #include "UploadJobs.h"
 #include "Socket.h"
 #include "User.h"
+#include "exceptions/dataException.h"
+#include "exceptions/socketException.h"
+#include "exceptions/filesystemException.h"
 
 UploadJobs uploadJobs;
 
@@ -16,57 +19,76 @@ void upload_to_server(){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
         Socket socket;
-        socket.connectToServer("127.0.0.1", 6020);
+        socket.connectToServer("127.0.0.1", 6028);
         User user("ste", "ciao1234");
-
         // 1. invio le credenziali
         socket.sendJSON(user.getJSON());
 
         // 2. se il server non risponde OK l'auth non è andata a buon fine e chiudo il programma
-        if(socket.getResp() != "OK")
-            return;
+        if(socket.getResp() != "OK") {
+            std::cout << "User not valid." << std::endl;
+            exit(-2);
+        }
+
 
         // continuo ad estrarre file dalla coda finchè il programma non termina
-        while (!uploadJobs.producer_is_ended()){
+        while (!uploadJobs.producer_is_ended()) {
             std::shared_ptr<SyncedFile> syncedFile = uploadJobs.get();
 
             // la classe fileJobs ritorna un nullptr se la coda è vuota e il programma deve terminare
-            if(syncedFile!= nullptr){
-                // 3. invio il json del synced file
-                socket.sendJSON(syncedFile->getJSON());
-                socket.sendFile(syncedFile);
-                std::optional<std::string> resp = socket.getResp();
-                if(resp.has_value()){
-                    // se la risposta è NO invio il file, altrimenti procedo
-                    if(resp.value() == "NO"){
+            if (syncedFile != nullptr) {
+                try {
+                    // 3. invio il json del synced file
+                    socket.sendJSON(syncedFile->getJSON());
+                    std::string resp = socket.getResp();
+                    if  (resp == "OK") {
+                        // se il file è già sul server ho concluso il mio lavoro
+                        std::cout << "Sincronizzazione file riuscita." << std::endl;
+                    } else if (resp=="NO") {
+                        // se il file non è già sul server devo inviarlo
+                        std::cout << "Il server ha richiesto l'invio del file." << std::endl;
                         socket.sendFile(syncedFile);
                         resp = socket.getResp();
-                        if(resp.has_value()){
+                        if(resp == "OK")
+                            // se il file è stato caricato correttamente ho concluso il mio lavoro
+                            std::cout << "Sincronizzazione file riuscita." << std::endl;
+                        else{
                             // "KO" si sono verificati errori, il client deve rieffettuare l'invio a partire dal punto 3.1
                             // se si verificano errori riaggiungo il file alla lista dopo avere ricalcolato hash e size
-                            if(resp.value() == "KO"){
-                                syncedFile->update_file_data();
-                                uploadJobs.put(syncedFile);
-                            }
+                            std::cout << "Si è verificato un errore nella coerenza dei dati." << std::endl;
+                            syncedFile->update_file_data();
+                            uploadJobs.put(syncedFile);
                         }
-                        else {
-                            // todo: gestire errore
-                            std::cout << "Errore trasmissione" << std::endl;
-                        }
+                    } else {
+                        // "KO" si sono verificati errori, il client deve rieffettuare l'invio a partire dal punto 3.1
+                        // se si verificano errori riaggiungo il file alla lista dopo avere ricalcolato hash e size
+                        std::cout << "Si è verificato un errore nella coerenza dei dati." << std::endl;
+                        syncedFile->update_file_data();
+                        uploadJobs.put(syncedFile);
                     }
-                } else {
-                    // todo: gestire errore
-                    std::cout << "Errore trasmissione" << std::endl;
                 }
-
+                catch (dataException &e1) {
+                    std::cout << e1.what() << std::endl;
+                    syncedFile->update_file_data();
+                    uploadJobs.put(syncedFile);
+                }
+                catch (socketException &e2) {
+                    std::cout << e2.what() << std::endl;
+                    exit(-3);
+                }
+                catch (filesystemException &e3) {
+                    std::cout << e3.what() << std::endl;
+                    syncedFile->update_file_data();
+                    uploadJobs.put(syncedFile);
+                }
 
             }
         }
-        std::cout << "Invio terminato" << std::endl;
-
         socket.closeConnection();
-    } catch (std::exception &exception) {
-        std::cout << exception.what() << std::endl;
+    }
+    catch (std::runtime_error &error) {
+        std::cout << error.what() << std::endl;
+        exit(-1);
     }
 }
 

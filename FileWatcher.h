@@ -20,6 +20,8 @@ private:
     std::chrono::duration<int, std::milli> delay;
     std::unordered_map<std::string, std::shared_ptr<SyncedFile>> files_to_watch;
     bool contains(const std::string &key);
+    void saveMap();
+    void loadMap();
 
 public:
     FileWatcher(const std::string &pathToWatch, const std::chrono::duration<int, std::milli> &delay);
