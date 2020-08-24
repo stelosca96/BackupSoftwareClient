@@ -48,6 +48,7 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
                 SyncedFile sf(it->first, FileStatus::erased);
                 action(std::make_shared<SyncedFile>(sf), FileStatus::erased);
                 it = files_to_watch.erase(it);
+                // todo: salvare la mappa solo dopo la ricezione dell'ok da parte del server o rendere permanente la coda dei lavori
                 saveMap();
             }
             else
@@ -61,6 +62,7 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
                 std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(file.path().string(), FileStatus::created);
                 this->files_to_watch[file.path().string()] = sfp;
                 action(sfp, FileStatus::created);
+                // todo: salvare la mappa solo dopo la ricezione dell'ok da parte del server o rendere permanente la coda dei lavori
                 saveMap();
                 // File modification
             }
@@ -69,6 +71,7 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
                 if(files_to_watch[file.path().string()]->getHash() != SyncedFile::CalcSha256(file.path().string())) {
                     files_to_watch[file.path().string()]->update_file_data();
                     action(files_to_watch[file.path().string()], FileStatus::modified);
+                    // todo: salvare la mappa solo dopo la ricezione dell'ok da parte del server o rendere permanente la coda dei lavori
                     saveMap();
                 }
             }
