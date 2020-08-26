@@ -25,7 +25,7 @@ void upload_to_server(){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
         Socket socket;
-        socket.connectToServer("127.0.0.1", 6031);
+        socket.connectToServer("127.0.0.1", 6034);
         User user("ste", "ciao1234");
         // 1. invio le credenziali
         socket.sendJSON(user.getJSON());
