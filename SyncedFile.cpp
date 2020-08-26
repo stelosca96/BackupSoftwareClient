@@ -9,6 +9,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <filesystem>
 #include <iostream>
+#include <mutex>
 
 namespace pt = boost::property_tree;
 
@@ -24,7 +25,15 @@ SyncedFile::SyncedFile(std::string path, FileStatus fileStatus) : path(std::move
 }
 
 void SyncedFile::update_file_data() {
-    // todo: se il file non esiste marchiarlo come eraseds
+    std::unique_lock lock(mutex);
+    // todo: se il file non esiste marchiarlo come erased => da testare
+    if(!(std::filesystem::is_regular_file(this->path) || (std::filesystem::is_directory(this->path)))){
+        this->hash = "";
+        this->fileStatus = FileStatus::erased;
+        this->file_size = 0;
+        this->is_file = false;
+        return;
+    }
     std::string new_hash = CalcSha256(path);
     if(new_hash!= this->hash){
         this->is_file = std::filesystem::is_regular_file(this->path);
@@ -64,6 +73,9 @@ std::string SyncedFile::CalcSha256(const std::string& filename){
 }
 
 bool SyncedFile::operator==(const SyncedFile &rhs) const {
+    // todo: devo acquisire i mutex di entrambi?
+//    std::scoped_lock lock(mutex, rhs.mutex);
+//    std::shared_lock lock(mutex);
     return path == rhs.path &&
            hash == rhs.hash;
 }
@@ -86,32 +98,40 @@ SyncedFile::SyncedFile() {
     is_file = false;
 }
 
-const std::string &SyncedFile::getPath() const {
+const std::string &SyncedFile::getPath(){
+    std::shared_lock lock(mutex);
     return path;
 }
 
-const std::string &SyncedFile::getHash() const {
+const std::string &SyncedFile::getHash() {
+    std::shared_lock lock(mutex);
     return hash;
 }
 
 std::string SyncedFile::to_string() {
+    std::shared_lock lock(mutex);
     return this->path + " (" + this->hash + ")";
 }
 
-FileStatus SyncedFile::getFileStatus() const {
+FileStatus SyncedFile::getFileStatus() {
+    std::shared_lock lock(mutex);
     return fileStatus;
 }
 
 bool SyncedFile::isSyncing() const {
+    // funzione chiamata solo dal thread dei jobs, non necessita syncronizzazione
     return is_syncing;
 }
 
 void SyncedFile::setSyncing(bool syncing) {
+    // funzione chiamata solo dal thread dei jobs, non necessita syncronizzazione
     SyncedFile::is_syncing = syncing;
 }
 
 pt::ptree SyncedFile::getPtree(){
     pt::ptree root;
+    std::shared_lock lock(mutex);
+
     root.put("path", this->path);
 
     //todo: devo ricalcolare l'hash e la dimensione (nel caso il file sia stato modificato) o uso quello salvato?
@@ -124,6 +144,7 @@ pt::ptree SyncedFile::getPtree(){
 }
 
 std::string SyncedFile::getJSON() {
+    // non ho bisogno di sicronizzare perchè chiamo la funzione getPtree che è già sincronizzata
     pt::ptree root = this->getPtree();
 
     std::stringstream ss;
@@ -131,15 +152,18 @@ std::string SyncedFile::getJSON() {
     return ss.str();
 }
 
-bool SyncedFile::isFile() const {
+bool SyncedFile::isFile() {
+    std::shared_lock lock(mutex);
     return is_file;
 }
 
-unsigned long SyncedFile::getFileSize() const {
+unsigned long SyncedFile::getFileSize() {
+    std::shared_lock lock(mutex);
     return file_size;
 }
 
 SyncedFile::SyncedFile(const std::string& path, const std::string& JSON) {
+    // costruttore => solo chi crea conosce il riferimento, non serve sincronizzare
     std::stringstream ss(JSON);
 
     boost::property_tree::ptree root;
@@ -155,6 +179,22 @@ SyncedFile::SyncedFile(const std::string& path, const std::string& JSON) {
     this->fileStatus = static_cast<FileStatus>(std::stoi(root.get_child("file_status").data()));
 
     this->is_file = root.get_child("is_file").data()=="true";
+}
+
+void SyncedFile::setToSync() {
+    this->synced.store(false);
+}
+
+void SyncedFile::setSynced() {
+    this->synced.store(true);
+}
+
+std::optional<std::pair<std::string, boost::property_tree::basic_ptree<std::string, std::string>>>
+SyncedFile::getMapValue() {
+    std::shared_lock lock(mutex);
+    if(!this->synced.load())
+        return std::nullopt;
+    return std::make_pair(this->path, this->getPtree());
 }
 
 

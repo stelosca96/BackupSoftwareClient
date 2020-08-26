@@ -9,6 +9,8 @@
 #include <string>
 #include <optional>
 #include <boost/property_tree/ptree.hpp>
+#include <atomic>
+#include <shared_mutex>
 
 enum class FileStatus {created, modified, erased, not_valid};
 
@@ -18,7 +20,7 @@ private:
     std::string hash = "";
     unsigned long file_size = 0;
     bool is_file;
-
+    std::shared_mutex mutex;
     // todo: il fileStatus serve veramente? magari distinguere tra modificato/eliminato/non_valido
     FileStatus fileStatus = FileStatus::not_valid;
 
@@ -28,6 +30,8 @@ private:
     // la variabile is_syncing deve essere letta e modificata solo dalla classe
     // UploadJobs che la protegge con un lock nel caso ci sia un thread pool che effettua l'upload parallelo
     bool is_syncing = false;
+    std::atomic<bool> synced = false;
+    boost::property_tree::basic_ptree<std::string, std::string> getPtree();
 
 public:
     //todo: togliere costruttore vuoto
@@ -46,17 +50,21 @@ public:
     bool operator==(const SyncedFile &rhs) const;
     bool operator!=(const SyncedFile &rhs) const;
 
-    [[nodiscard]] const std::string &getPath() const;
-    [[nodiscard]] const std::string &getHash() const;
-    [[nodiscard]] FileStatus getFileStatus() const;
-    [[nodiscard]] unsigned long getFileSize() const;
+    [[nodiscard]] const std::string &getPath();
+    [[nodiscard]] const std::string &getHash();
+    [[nodiscard]] FileStatus getFileStatus();
+    [[nodiscard]] unsigned long getFileSize();
+
     [[nodiscard]] bool isSyncing() const;
-    [[nodiscard]] bool isFile() const;
+    [[nodiscard]] bool isFile();
 
     void setSyncing(bool syncing);
     std::string getJSON();
 
-    boost::property_tree::basic_ptree<std::string, std::string> getPtree();
+    void setToSync();
+    void setSynced();
+    std::optional<std::pair<std::string, boost::property_tree::basic_ptree<std::string, std::string>>> getMapValue();
+
 };
 
 
