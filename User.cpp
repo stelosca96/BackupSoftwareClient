@@ -27,7 +27,7 @@ std::string User::getJSON() {
 
     std::stringstream ss;
     pt::json_parser::write_json(ss, root);
-    std::cout << ss.str() << std::endl;
+//    std::cout << ss.str() << std::endl;
     return ss.str();}
 
 const std::string &User::getUsername() const {
