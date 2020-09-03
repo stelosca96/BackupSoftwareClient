@@ -20,25 +20,29 @@ class Client {
 private:
     //todo: mettere una dimensione del buffer ragionevole
     const static int N = 10240;
-    int socket_fd;
-    const static int timeout_value = 20;
+    const unsigned timeout_value = 2;
+
+    // sto usando un puntatore C style perchè tanto l'ogetto verra distrutto
+    // todo: valutare weak_ptr
+    boost::asio::io_context *io_context_;
     boost::asio::ssl::stream<tcp::socket> socket_;
-    tcp::resolver::iterator endpoints_;
+    boost::asio::deadline_timer deadline_;
+    boost::asio::ip::tcp::endpoint endpoint_;
     std::string username;
     void sendString(const std::string &str);
     bool verify_certificate(bool preverified, boost::asio::ssl::verify_context &ctx);
     std::string readString();
+    void run(unsigned timeout);
 
 public:
     Client &operator=(const Client &) = delete; //elimino operatore di assegnazione
     Client(boost::asio::io_context& io_context,
            boost::asio::ssl::context& context,
-           tcp::resolver::iterator& iterator);
+           boost::asio::ip::tcp::endpoint& iterator);
     ~Client();
     Client(const Client &) = delete; //elimino il costruttore di copia
-//    Client(Client &&other) noexcept ;  // costruttore di movimento
-
-    Client &operator=(Client &&other) noexcept ; // costruttore di copia per movimento
+    Client(Client &&other) = delete;  //elimino il  costruttore di movimento
+    Client &operator=(Client &&other) = delete; //elimino costruttore di copia per movimento
     void sendFile(const std::shared_ptr<SyncedFile>& syncedFile);
     void connect();
 

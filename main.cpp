@@ -21,7 +21,6 @@ void saveMap(){
         fw_ptr->saveMap();
 }
 
-// todo: gestire riconessione ogni 30s
 // todo: implementare timeouts
 // todo: caricare impostazioni da file .config
 // address, port, directory to watch, cert_path, username, password
@@ -32,8 +31,6 @@ void upload_to_server(unsigned sleep_time){
     // la apro e la tengo aperta finchè la coda è piena? Può avere senso ma è più complicata da implementare
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
-        boost::asio::io_context io_context;
-        tcp::resolver resolver(io_context);
 //        auto endpoints = resolver.resolve("192.168.1.24", "9999");
         boost::asio::ssl::context ctx(boost::asio::ssl::context::sslv23);
         ctx.load_verify_file("/home/stefano/CLionProjects/test_ssl_client/user.crt");
@@ -41,8 +38,12 @@ void upload_to_server(unsigned sleep_time){
 
         while (true) {
             try {
-                auto endpoints = resolver.resolve("127.0.0.1", "9999");
-                Client client(io_context, ctx, endpoints);
+                boost::asio::io_context io_context;
+                tcp::resolver resolver(io_context);
+//                auto endpoints = resolver.resolve("127.0.0.1", "9999");
+                boost::asio::ip::tcp::endpoint endpoint(
+                        boost::asio::ip::address::from_string("127.0.0.1"), 9999);
+                Client client(io_context, ctx, endpoint);
                 client.connect();
                 User user("pluto", "ciao1234");
                 // 1. invio le credenziali
@@ -95,30 +96,34 @@ void upload_to_server(unsigned sleep_time){
                                 uploadJobs.put(syncedFile);
                             }
                         }
-                        catch (socketException &e1) {
-                            std::cout << e1.what() << std::endl;
-                            exit(-3);
-                        }
                             // todo: potrei genarilizzare con una std::runtimeError
-                        catch (dataException &e2) {
+                        catch (dataException &e1) {
+                            std::cout << e1.what() << std::endl;
+                            syncedFile->update_file_data();
+                            uploadJobs.put(syncedFile);
+                        }
+                        catch (filesystemException &e2) {
                             std::cout << e2.what() << std::endl;
                             syncedFile->update_file_data();
                             uploadJobs.put(syncedFile);
                         }
-                        catch (filesystemException &e3) {
-                            std::cout << e3.what() << std::endl;
+                        catch (socketException &e3) {
+                            // riaggiungo il file su cui si è verificato l'errore alla coda
                             syncedFile->update_file_data();
                             uploadJobs.put(syncedFile);
+                            throw e3;
                         }
 
                     }
                 }
                 client.closeConnection();
             }
-            catch (boost::wrapexcept<boost::system::system_error> &e) {
-                std::cout << e.what() << std::endl;
-                std::cout << "Ritento la connessione tra " << sleep_time << "s" << std::endl;
+            catch (socketException &e1) {
+                // in caso di timeout o errori socket la chiudo e ricreo la connessione
+                std::cout << e1.what() << std::endl;
+                std::cout << "Ritento la connessione dopo l'errore" << std::endl;
                 sleep(sleep_time);
+
             }
         }
     }
