@@ -161,7 +161,7 @@ void Client::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
             file_to_send.read(reinterpret_cast<char *>(&buffer), sizeof(buffer));
             size = file_to_send.gcount();
             boost::system::error_code error;
-            boost::asio::async_write(socket_, boost::asio::buffer(buffer),
+            boost::asio::async_write(socket_, boost::asio::buffer(buffer, size),
                                      [&](const boost::system::error_code& result_error,
                                          std::size_t bytes_transferred)
                                      {

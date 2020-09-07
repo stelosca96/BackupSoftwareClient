@@ -134,7 +134,7 @@ void add_to_queue(const std::shared_ptr<SyncedFile>& sfp){
 void file_watcher(){
     // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
 //    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir", std::chrono::milliseconds(5000));
-    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir/ddd", std::chrono::milliseconds(5000));
+    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/Scaricati", std::chrono::milliseconds(5000));
     // Start monitoring a folder for changes and (in case of changes)
     // run a user provided lambda function
     fw_ptr->start([] (const std::shared_ptr<SyncedFile>& sfp, FileStatus status) -> void {
