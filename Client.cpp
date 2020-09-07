@@ -35,16 +35,11 @@ bool Client::verify_certificate(bool preverified, boost::asio::ssl::verify_conte
 Client::Client(boost::asio::io_context& io_context,
                boost::asio::ssl::context& context,
                boost::asio::ip::tcp::endpoint& endpoints)
-        : socket_(io_context, context),
+        : socket_(io_context),
         endpoint_(std::move(endpoints)),
         deadline_(io_context){
     io_context_ = &io_context;
     deadline_.expires_at(boost::posix_time::pos_infin);
-    socket_.set_verify_mode(boost::asio::ssl::verify_peer);
-    socket_.set_verify_callback(
-            std::bind(&Client::verify_certificate, this, std::placeholders::_1, std::placeholders::_2)
-    );
-
 }
 Client::~Client() {
     socket_.lowest_layer().close();
@@ -84,7 +79,7 @@ void Client::run(unsigned t){
 void Client::connect(){
     // todo: gestire eccezioni
     boost::system::error_code error;
-    socket_.lowest_layer().async_connect(endpoint_,
+    socket_.async_connect(endpoint_,
             [&](const boost::system::error_code& result_error)
             {
                 error = result_error;
@@ -96,19 +91,6 @@ void Client::connect(){
     }
 //    boost::asio::connect(socket_.lowest_layer(),this->endpoints_);
     std::cout << "Connected to: " << this->endpoint_ << std::endl;
-    socket_.async_handshake(
-            boost::asio::ssl::stream_base::client,
-            [&](const boost::system::error_code& result_error)
-            {
-                error = result_error;
-            });
-
-    run(this->timeout_value);
-    // Se scade il timeout lancio un'eccezione
-    if (error){
-        throw socketException("timeout expired " + error.message());
-    }
-    std::cout << "Handshake OK" << std::endl;
 
 }
 
@@ -161,7 +143,7 @@ void Client::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
             file_to_send.read(reinterpret_cast<char *>(&buffer), sizeof(buffer));
             size = file_to_send.gcount();
             boost::system::error_code error;
-            boost::asio::async_write(socket_, boost::asio::buffer(buffer),
+            boost::asio::async_write(socket_, boost::asio::buffer(buffer, size),
                                      [&](const boost::system::error_code& result_error,
                                          std::size_t bytes_transferred)
                                      {

@@ -26,7 +26,7 @@ private:
     // sto usando un puntatore C style perchè tanto l'ogetto verra distrutto
     // todo: valutare weak_ptr
     boost::asio::io_context *io_context_;
-    boost::asio::ssl::stream<tcp::socket> socket_;
+    tcp::socket socket_;
     boost::asio::deadline_timer deadline_;
     boost::asio::ip::tcp::endpoint endpoint_;
     std::string username;
