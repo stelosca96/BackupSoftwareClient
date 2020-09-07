@@ -55,7 +55,7 @@ Client::~Client() {
 //}
 
 void Client::run(unsigned t){
-    std::chrono::seconds timeout(10);
+    std::chrono::seconds timeout(t);
     // Restart the io_context, as it may have been left in the "stopped" state
     // by a previous operation.
     io_context_->restart();
@@ -65,7 +65,7 @@ void Client::run(unsigned t){
     // applies to the entire operation, rather than individual operations on
     // the socket.
     io_context_->run_for(timeout);
-    std::cout << "chiudo la socket? " << !io_context_->stopped() << std::endl;
+//    std::cout << "chiudo la socket? " << !io_context_->stopped() << std::endl;
 
     // If the asynchronous operation completed successfully then the io_context
     // would have been stopped due to running out of work. If it was not
@@ -102,6 +102,7 @@ void Client::connect(){
             {
                 error = result_error;
             });
+
     run(this->timeout_value);
     // Se scade il timeout lancio un'eccezione
     if (error){
@@ -125,7 +126,7 @@ void Client::sendString(const std::string& str_b){
                                  std::size_t size)
                              {
                                  error = result_error;
-                                 std::cout << "Size inviata: " << size << std::endl;
+//                                 std::cout << "Size inviata: " << size << std::endl;
 
                              });
 
@@ -165,10 +166,9 @@ void Client::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
                                          std::size_t bytes_transferred)
                                      {
                                          error = result_error;
-                                         std::cout << "Size inviata: " << bytes_transferred << std::endl;
+//                                         std::cout << "Size inviata: " << bytes_transferred << std::endl;
 
                                      });
-
             run(this->timeout_value);
             // Se scade il timeout lancio un'eccezione
             if (error){
@@ -178,7 +178,7 @@ void Client::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
 
 //            boost::asio::write(this->socket_, boost::asio::buffer(buffer, size));
             size_read += size;
-            std::cout << "Size read: " << size_read << std::endl;
+//            std::cout << "Size read: " << size_read << std::endl;
         }
         std::cout << "File chiuso" << std::endl;
         file_to_send.close();

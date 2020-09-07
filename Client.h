@@ -20,7 +20,8 @@ class Client {
 private:
     //todo: mettere una dimensione del buffer ragionevole
     const static int N = 10240;
-    const unsigned timeout_value = 2;
+    // todo: modificare
+    const unsigned timeout_value = 20000;
 
     // sto usando un puntatore C style perchè tanto l'ogetto verra distrutto
     // todo: valutare weak_ptr

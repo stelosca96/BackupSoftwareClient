@@ -44,7 +44,6 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
     while(running) {
         // Wait for "delay" milliseconds
         std::this_thread::sleep_for(this->delay);
-        std::cout << "Faccio il lock della map" << std::endl;
         map_lock.lock();
         auto it = files_to_watch.begin();
         while (it != files_to_watch.end()) {
@@ -52,7 +51,6 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
                 SyncedFile sf(it->first, FileStatus::erased);
                 action(std::make_shared<SyncedFile>(sf), FileStatus::erased);
                 it = files_to_watch.erase(it);
-                // todo: salvare la mappa solo dopo la ricezione dell'ok da parte del server o rendere permanente la coda dei lavori
             }
             else
                 it++;
@@ -66,7 +64,6 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
                 std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(file.path().string(), FileStatus::created);
                 this->files_to_watch[file.path().string()] = sfp;
                 action(sfp, FileStatus::created);
-                // todo: salvare la mappa solo dopo la ricezione dell'ok da parte del server o rendere permanente la coda dei lavori
                 // File modification
             }
             else {
@@ -75,19 +72,17 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
                     // todo: qua invece devo gestire la sincronizzazione, perchè il puntatore potrebbe essere conosciuto da più thread
                     files_to_watch[file.path().string()]->update_file_data();
                     action(files_to_watch[file.path().string()], FileStatus::modified);
-                    // todo: salvare la mappa solo dopo la ricezione dell'ok da parte del server o rendere permanente la coda dei lavori
                 }
             }
         }
         map_lock.unlock();
-        std::cout << "Rilascio il lock della map" << std::endl;
     }
 }
 
 void FileWatcher::saveMap() {
     pt::ptree pt;
     // accedo alla mappa solo in lettura, quindi uso uno shared
-    std::cout << "Provo a prendere il lock per salvare la mappa" << std::endl;
+//    std::cout << "Provo a prendere il lock per salvare la mappa" << std::endl;
     std::shared_lock map_lock(map_mutex);
     for(auto const& [key, val] : files_to_watch){
 //        std::cout << val->getPath() << std::endl;
@@ -97,7 +92,7 @@ void FileWatcher::saveMap() {
             pt.push_back(map_value.value());
     }
     map_lock.unlock();
-    std::cout << "Rilascio il lock per salvare la mappa" << std::endl;
+//    std::cout << "Rilascio il lock per salvare la mappa" << std::endl;
     pt::json_parser::write_json("synced_maps.json", pt);
 }
 

@@ -21,21 +21,13 @@ void saveMap(){
         fw_ptr->saveMap();
 }
 
-// todo: implementare timeouts
 // todo: caricare impostazioni da file .config
 // address, port, directory to watch, cert_path, username, password
 void upload_to_server(unsigned sleep_time){
-    // quando apro la connessione tcp?
-    // una per ogni file => grande spreco di risorse
-    // una e la tengo aperta => spreco di risorse a tenere una connessione aperta
-    // la apro e la tengo aperta finchè la coda è piena? Può avere senso ma è più complicata da implementare
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
-//        auto endpoints = resolver.resolve("192.168.1.24", "9999");
         boost::asio::ssl::context ctx(boost::asio::ssl::context::sslv23);
         ctx.load_verify_file("/home/stefano/CLionProjects/test_ssl_client/user.crt");
-//        boost::asio::ssl::stream<tcp::socket> sock(io_context, ctx);
-
         while (true) {
             try {
                 boost::asio::io_context io_context;
@@ -45,7 +37,7 @@ void upload_to_server(unsigned sleep_time){
                         boost::asio::ip::address::from_string("127.0.0.1"), 9999);
                 Client client(io_context, ctx, endpoint);
                 client.connect();
-                User user("pluto", "ciao1234");
+                User user("stefano", "ciao1234");
                 // 1. invio le credenziali
                 client.sendJSON(user.getJSON());
 
@@ -141,7 +133,8 @@ void add_to_queue(const std::shared_ptr<SyncedFile>& sfp){
 
 void file_watcher(){
     // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
-    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir", std::chrono::milliseconds(5000));
+//    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir", std::chrono::milliseconds(5000));
+    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir/ddd", std::chrono::milliseconds(5000));
     // Start monitoring a folder for changes and (in case of changes)
     // run a user provided lambda function
     fw_ptr->start([] (const std::shared_ptr<SyncedFile>& sfp, FileStatus status) -> void {
