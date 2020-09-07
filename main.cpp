@@ -23,21 +23,29 @@ void saveMap(){
 
 // todo: caricare impostazioni da file .config
 // address, port, directory to watch, cert_path, username, password
-void upload_to_server(unsigned sleep_time){
+void upload_to_server(
+        const std::string& serverAddress,
+        short serverPort,
+        unsigned sleep_time,
+        unsigned timeoutValue,
+        const std::string& username,
+        const std::string& password,
+        const std::string& crtPath,
+){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
         boost::asio::ssl::context ctx(boost::asio::ssl::context::sslv23);
-        ctx.load_verify_file("/home/stefano/CLionProjects/test_ssl_client/user.crt");
+        ctx.load_verify_file(crtPath);
         while (true) {
             try {
                 boost::asio::io_context io_context;
                 tcp::resolver resolver(io_context);
 //                auto endpoints = resolver.resolve("127.0.0.1", "9999");
                 boost::asio::ip::tcp::endpoint endpoint(
-                        boost::asio::ip::address::from_string("127.0.0.1"), 9999);
-                Client client(io_context, ctx, endpoint);
+                        boost::asio::ip::address::from_string(serverAddress), serverPort);
+                Client client(io_context, ctx, endpoint, timeoutValue);
                 client.connect();
-                User user("stefano", "ciao1234");
+                User user(username, password);
                 // 1. invio le credenziali
                 client.sendJSON(user.getJSON());
 
@@ -105,7 +113,6 @@ void upload_to_server(unsigned sleep_time){
                             uploadJobs.put(syncedFile);
                             throw e3;
                         }
-
                     }
                 }
                 client.closeConnection();
@@ -131,10 +138,10 @@ void add_to_queue(const std::shared_ptr<SyncedFile>& sfp){
     uploadJobs.put(sfp);
 }
 
-void file_watcher(){
+void file_watcher(std::string& username, std::string& path, unsigned fileRescanTime){
     // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
 //    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir", std::chrono::milliseconds(5000));
-    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/Scaricati", std::chrono::milliseconds(5000));
+    fw_ptr = std::make_shared<FileWatcher>(username, path, std::chrono::seconds(fileRescanTime));
     // Start monitoring a folder for changes and (in case of changes)
     // run a user provided lambda function
     fw_ptr->start([] (const std::shared_ptr<SyncedFile>& sfp, FileStatus status) -> void {
@@ -160,23 +167,18 @@ void file_watcher(){
 }
 
 
-//void test_f(){
-//    Client socket;
-//    socket.connectToServer("127.0.0.1", 6019);
-//    SyncedFile sf("/home/stefano/CLionProjects/FileWatcher/test_dir/testdd.txt");
-//    std::shared_ptr<SyncedFile> sfp(std::make_shared<SyncedFile>(sf));
-//    std::cout << sfp->getJSON() << std::endl;
-//    socket.sendFile(sfp);
-//    std::optional<std::string> resp = socket.getResp();
-//    if(resp.has_value())
-//        std::cout << "RESP: " << resp.value() << std::endl;
-//    else
-//        std::cout << "RESP error" << std::endl;
-//}
-
-
 int main() {
-    std::thread t1(upload_to_server, 30);
-    file_watcher();
+    std::string username("stefano");
+    std::string password("ciao1234");
+    std::string path("/home/stefano/Video");
+    std::string serverAddress("127.0.0.1");
+    std::string crtPath("/home/stefano/CLionProjects/test_ssl_client/user.crt");
+    short serverPort = 9999;
+    unsigned retryTime = 30;
+    unsigned timeoutTime = 2;
+    unsigned fileRescanTime = 5;
+
+    std::thread t1(upload_to_server, serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath);
+    file_watcher(username, path, fileRescanTime);
     t1.join();
 }

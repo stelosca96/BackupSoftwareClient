@@ -34,10 +34,12 @@ bool Client::verify_certificate(bool preverified, boost::asio::ssl::verify_conte
 
 Client::Client(boost::asio::io_context& io_context,
                boost::asio::ssl::context& context,
-               boost::asio::ip::tcp::endpoint& endpoints)
+               boost::asio::ip::tcp::endpoint& endpoints,
+               unsigned timeout_value,)
         : socket_(io_context, context),
         endpoint_(std::move(endpoints)),
-        deadline_(io_context){
+        deadline_(io_context),
+        timeout_value(timeout_value){
     io_context_ = &io_context;
     deadline_.expires_at(boost::posix_time::pos_infin);
     socket_.set_verify_mode(boost::asio::ssl::verify_peer);

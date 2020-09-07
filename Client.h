@@ -20,8 +20,7 @@ class Client {
 private:
     //todo: mettere una dimensione del buffer ragionevole
     const static int N = 10240;
-    // todo: modificare
-    const unsigned timeout_value = 20000;
+    const unsigned timeout_value;
 
     // sto usando un puntatore C style perchè tanto l'ogetto verra distrutto
     // todo: valutare weak_ptr
@@ -39,7 +38,8 @@ public:
     Client &operator=(const Client &) = delete; //elimino operatore di assegnazione
     Client(boost::asio::io_context& io_context,
            boost::asio::ssl::context& context,
-           boost::asio::ip::tcp::endpoint& iterator);
+           boost::asio::ip::tcp::endpoint& iterator,
+           unsigned timeout_value);
     ~Client();
     Client(const Client &) = delete; //elimino il costruttore di copia
     Client(Client &&other) = delete;  //elimino il  costruttore di movimento

@@ -8,6 +8,7 @@
 #include "SyncedFile.h"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <utility>
 
 namespace pt = boost::property_tree;
 
@@ -18,8 +19,8 @@ bool FileWatcher::contains(const std::string &key) {
     return el != this->files_to_watch.end();
 }
 
-FileWatcher::FileWatcher(const std::string &pathToWatch, const std::chrono::duration<int, std::milli> &delay)
-        : path_to_watch(pathToWatch), delay(delay) {
+FileWatcher::FileWatcher(std::string username, std::string pathToWatch, const std::chrono::duration<int, std::milli> &delay)
+        : path_to_watch(std::move(pathToWatch)), delay(delay), username(std::move(username)) {
     // Keep a record of files from the base directory and their last modification time
     // si potrebbe sostituire il valore di ultima modifica con l'hash code
     // todo: l'inizializzazione andrà fatta leggendo i file della mappa da un db
