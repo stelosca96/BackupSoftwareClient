@@ -30,7 +30,7 @@ void upload_to_server(
         unsigned timeoutValue,
         const std::string& username,
         const std::string& password,
-        const std::string& crtPath,
+        const std::string& crtPath
 ){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
@@ -48,13 +48,12 @@ void upload_to_server(
                 User user(username, password);
                 // 1. invio le credenziali
                 client.sendJSON(user.getJSON());
-
                 // 2. se il server non risponde OK l'auth non è andata a buon fine e chiudo il programma
                 if (client.getResp() != "OK") {
                     std::cout << "User not valid." << std::endl;
                     exit(-2);
                 }
-
+                std::cout << "Login riuscito" << std::endl;
 
                 // continuo ad estrarre file dalla coda finchè il programma non termina
                 while (!uploadJobs.producer_is_ended()) {
@@ -64,7 +63,9 @@ void upload_to_server(
                     if (syncedFile != nullptr) {
                         try {
                             // 3. invio il json del synced file
-                            client.sendJSON(syncedFile->getJSON());
+                            std::string fileJSON(syncedFile->getJSON());
+                            std::cout << fileJSON << std::endl;
+                            client.sendJSON(fileJSON);
                             std::string resp = client.getResp();
                             if (resp == "OK") {
                                 syncedFile->setSynced();
