@@ -10,6 +10,9 @@
 #include "exceptions/filesystemException.h"
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/range/adaptor/reversed.hpp>
+#include <vector>
 
 using boost::asio::ip::tcp;
 
@@ -139,10 +142,33 @@ void add_to_queue(const std::shared_ptr<SyncedFile>& sfp){
     uploadJobs.put(sfp);
 }
 
+std::filesystem::path get_absolute_path(const std::string& path){
+    auto p = std::filesystem::absolute(path).string();
+    std::vector<std::string> split_path;
+    boost::split(split_path, p, boost::is_any_of("\\,/"));
+
+    int count = 0;
+    std::string out;
+    for(auto start = split_path.rbegin(); start != split_path.rend(); start++){
+        if(*start == "..") {
+            count++;
+            continue;
+        }
+        else if(count > 0){
+            for(; count > 0; count--, start++);
+        }
+
+        out = *start + "/" + out;
+    }
+
+    return std::filesystem::path(out);
+}
+
 void file_watcher(std::string& username, std::string& path, unsigned fileRescanTime){
     // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
 //    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir", std::chrono::milliseconds(5000));
-    fw_ptr = std::make_shared<FileWatcher>(username, path, std::chrono::seconds(fileRescanTime));
+    std::string abs_path = get_absolute_path(path).string();
+    fw_ptr = std::make_shared<FileWatcher>(username, abs_path, std::chrono::seconds(fileRescanTime));
     // Start monitoring a folder for changes and (in case of changes)
     // run a user provided lambda function
     fw_ptr->start([] (const std::shared_ptr<SyncedFile>& sfp, FileStatus status) -> void {
@@ -171,9 +197,9 @@ void file_watcher(std::string& username, std::string& path, unsigned fileRescanT
 int main() {
     std::string username("stefano");
     std::string password("ciao1234");
-    std::string path("/home/stefano/Video");
+    std::string path("../test_dir");
     std::string serverAddress("127.0.0.1");
-    std::string crtPath("/home/stefano/CLionProjects/test_ssl_client/user.crt");
+    std::string crtPath("../cert/user.crt");
     short serverPort = 9999;
     unsigned retryTime = 30;
     unsigned timeoutTime = 2;
