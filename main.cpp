@@ -13,7 +13,9 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 #include <vector>
+#include <boost/property_tree/json_parser.hpp>
 
+namespace pt = boost::property_tree;
 using boost::asio::ip::tcp;
 
 UploadJobs uploadJobs;
@@ -195,15 +197,27 @@ void file_watcher(std::string& username, std::string& path, unsigned fileRescanT
 
 
 int main() {
-    std::string username("stefano");
-    std::string password("ciao1234");
-    std::string path("../test_dir");
-    std::string serverAddress("127.0.0.1");
-    std::string crtPath("../cert/user.crt");
-    short serverPort = 9999;
-    unsigned retryTime = 30;
-    unsigned timeoutTime = 2;
-    unsigned fileRescanTime = 5;
+    std::string username, password, path, serverAddress, crtPath;
+    short serverPort;
+    unsigned retryTime, timeoutTime, fileRescanTime;
+    try{
+        pt::ptree root;
+        pt::read_json("config.json", root);
+        username = root.get_child("username").data();
+        password = root.get_child("password").data();
+        path = root.get_child("path").data();
+        serverAddress = root.get_child("serverAddress").data();
+        crtPath = root.get_child("crtPath").data();
+        serverPort = std::stoi(root.get_child("serverPort").data());
+        retryTime = std::stoi(root.get_child("retryTime").data());
+        timeoutTime = std::stoi(root.get_child("timeoutTime").data());
+        fileRescanTime = std::stoi(root.get_child("fileRescanTime").data());
+
+    } catch (std::runtime_error &error) {
+        std::cerr << "Errore caricamento file configurazione" << std::endl;
+        std::cerr << error.what() << std::endl;
+        exit(-1);
+    }
 
     std::thread t1(upload_to_server, serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath);
     file_watcher(username, path, fileRescanTime);
