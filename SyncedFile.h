@@ -20,6 +20,7 @@ private:
     std::string hash = "";
     unsigned long file_size = 0;
     bool is_file;
+    //todo: aggiungere ultima modifica
     std::shared_mutex mutex;
     // todo: il fileStatus serve veramente? magari distinguere tra modificato/eliminato/non_valido
     FileStatus fileStatus = FileStatus::not_valid;

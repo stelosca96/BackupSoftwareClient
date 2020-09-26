@@ -51,7 +51,7 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
         }
         // Check if a file was created or modified
         for(auto &file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
-            auto current_file_last_write_time = std::filesystem::last_write_time(file);
+//            auto current_file_last_write_time = std::filesystem::last_write_time(file);
             // File creation
             if(!contains(file.path().string())) {
                 std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(file.path().string(), FileStatus::created);

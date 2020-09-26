@@ -39,12 +39,12 @@ void upload_to_server(
 ){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
-        boost::asio::ssl::context ctx(boost::asio::ssl::context::sslv23);
+        boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv13);
         ctx.load_verify_file(crtPath);
         while (true) {
             try {
                 boost::asio::io_context io_context;
-                tcp::resolver resolver(io_context);
+//                tcp::resolver resolver(io_context);
 //                auto endpoints = resolver.resolve("127.0.0.1", "9999");
                 boost::asio::ip::tcp::endpoint endpoint(
                         boost::asio::ip::address::from_string(serverAddress), serverPort);
@@ -53,9 +53,9 @@ void upload_to_server(
                 User user(username, password);
                 // 1. invio le credenziali
                 client.sendJSON(user.getJSON());
-                // 2. se il server non risponde OK l'auth non è andata a buon fine e chiudo il programma
+                // 2. se il server non risponde OK l'auth non è andata a buon fine e chiudo il programma, ma se ricevo dati diversi da OK, KO, NO
                 if (client.getResp() != "OK") {
-                    std::cout << "User not valid." << std::endl;
+                    std::cout << "Utente già registrato o password errata." << std::endl;
                     exit(-2);
                 }
                 std::cout << "Login riuscito" << std::endl;
@@ -144,6 +144,7 @@ void add_to_queue(const std::shared_ptr<SyncedFile>& sfp){
     uploadJobs.put(sfp);
 }
 
+// todo: qui si lavora con le split e le string, non so quanto sia sensato
 std::filesystem::path get_absolute_path(const std::string& path){
     auto p = std::filesystem::absolute(path).string();
     std::vector<std::string> split_path;

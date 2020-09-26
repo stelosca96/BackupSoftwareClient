@@ -15,12 +15,12 @@ std::shared_ptr<SyncedFile> UploadJobs::get() {
     queue.pop();
     sfp->setSyncing(false);
     std::cout << "Queue size: " << queue.size() << std::endl;
-    cv_put.notify_one();
     return sfp;
 }
 
 void UploadJobs::put(const std::shared_ptr<SyncedFile>& sfp) {
     std::unique_lock<std::mutex> lock(mutex);
+    // se il file è già in coda non lo riaggiungo
     if(!sfp->isSyncing()){
         std::cout << "Queue size: " << queue.size() << std::endl;
         queue.push(sfp);

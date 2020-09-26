@@ -138,6 +138,7 @@ void Client::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
         ssize_t size = 1;
         // ciclo finchè non ho letto tutto il file
         while (size_read < syncedFile->getFileSize() && size>0) {
+            // todo: provare senza cast
             file_to_send.read(reinterpret_cast<char *>(&buffer), sizeof(buffer));
             size = file_to_send.gcount();
             boost::system::error_code error;
