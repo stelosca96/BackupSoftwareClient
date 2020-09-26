@@ -104,6 +104,10 @@ void Client::sendJSON(const std::string &JSON) {
     this->sendString(JSON);
 }
 
+void Client::sendResp(const std::string& resp) {
+    this->sendString(resp);
+}
+
 void Client::sendString(const std::string& str_b){
     std::string buffer = str_b + "\\\n";
 //    std::cout << "Buffer inviato: " << buffer << std::endl;
@@ -201,4 +205,67 @@ std::string Client::getResp() {
 
 void Client::closeConnection() {
     this->socket_.lowest_layer().close();
+}
+
+// genero un nome temporaneo per il file dato da tempo corrente + id thread
+std::string Client::tempFilePath(){
+    std::filesystem::create_directory("temp/");
+    auto th_id = std::this_thread::get_id();
+    std::time_t t = std::time(nullptr);   // get time now
+    std::stringstream ss;
+    ss << "temp/" << th_id << "-" << t;
+    return ss.str();
+}
+
+void Client::moveFile(const std::shared_ptr<SyncedFile>& sfp, const std::string& tempPath){
+    // todo: se usiamo i percorsi relativi o no cambia come gestire la posizione di salvataggio
+    std::filesystem::path user_path("./");
+    user_path += username;
+    std::filesystem::path path(sfp->getPath());
+    user_path += path;
+    std::filesystem::create_directories(user_path.parent_path());
+    std::filesystem::copy_file(tempPath, user_path, std::filesystem::copy_options::overwrite_existing);
+    if(std::filesystem::is_directory(tempPath) || std::filesystem::is_regular_file(tempPath))
+        std::filesystem::remove(tempPath);
+    std::cout << user_path.parent_path() << std::endl;
+}
+
+void Client::getFile(std::shared_ptr<SyncedFile> sfp) {
+    std::string tempPath(tempFilePath());
+    auto file = std::ofstream(tempPath, std::ios::binary);
+    if(!file.is_open())
+        throw filesystemException("Can't open file: " + tempPath);
+    ssize_t size_recv = 0;
+    while(sfp->getFileSize()>size_recv){
+        const ssize_t size_left = sfp->getFileSize()-size_recv;
+
+        // scelgo la dimensione massima del buffer
+        const ssize_t buff_size = size_left<N ? size_left: N;
+        boost::system::error_code error;
+        boost::asio::async_read(
+                socket_,
+                boost::asio::buffer(data_, buff_size),
+                [&](const boost::system::error_code& result_error,
+                    std::size_t bytes_transferred){
+                        error = result_error;
+                        size_recv+=bytes_transferred;
+                        // todo: non so se farlo nella callback o dopo il run
+                    if(!error){
+                        // se non si sono verificati errori scrivo il file
+                        data_[bytes_transferred] = '\0';
+                        file.write(data_, bytes_transferred);
+                    } else {
+                        data_[bytes_transferred] = '\0';
+                        file.close();
+                        std::cout << "Errore ricezione file" << std::endl;
+                        std::filesystem::remove(tempPath);
+                        throw dataException("File recv error");
+                        // altrimenti gestisco l'errore
+                    }
+                });
+        moveFile(sfp, tempPath);
+        run(this->timeout_value);
+    }
+    std::cout << "File chiuso" << std::endl;
+    file.close();
 }

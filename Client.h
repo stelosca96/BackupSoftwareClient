@@ -20,6 +20,7 @@ class Client {
 private:
     //todo: mettere una dimensione del buffer ragionevole
     const static int N = 10240;
+    char data_[N+1];
     const unsigned timeout_value;
 
     // sto usando un puntatore C style perchè tanto l'ogetto verra distrutto
@@ -31,8 +32,9 @@ private:
     std::string username;
     void sendString(const std::string &str);
     bool verify_certificate(bool preverified, boost::asio::ssl::verify_context &ctx);
-    std::string readString();
     void run(unsigned timeout);
+    std::string tempFilePath();
+    void moveFile(const std::shared_ptr<SyncedFile>& sfp, const std::string& tempPath);
 
 public:
     Client &operator=(const Client &) = delete; //elimino operatore di assegnazione
@@ -46,14 +48,13 @@ public:
     Client &operator=(Client &&other) = delete; //elimino costruttore di copia per movimento
     void sendFile(const std::shared_ptr<SyncedFile>& syncedFile);
     void connect();
-
+    std::string readString();
     void closeConnection();
     std::string getResp();
+    void getFile(std::shared_ptr<SyncedFile> sfp);
 
     void sendJSON(const std::string& JSON);
-
-
-
+    void sendResp(const std::string& resp);
 };
 
 

@@ -197,5 +197,26 @@ SyncedFile::getMapValue() {
     return std::make_pair(this->path, this->getPtree());
 }
 
+SyncedFile::SyncedFile(const std::string& JSON, bool mode) {
+    //    std::cout << JSON << std::endl;
+
+    // todo: gestire eccezioni
+    std::stringstream ss(JSON);
+
+    boost::property_tree::ptree root;
+    boost::property_tree::read_json(ss, root);
+    this->hash = root.get_child("hash").data();
+
+    this->path = root.get_child("path").data();
+
+    // If no conversion could be performed, an invalid_argument exception is thrown.
+    this->file_size = std::stoul(root.get_child("file_size").data());
+
+    // If no conversion could be performed, an invalid_argument exception is thrown.
+    this->fileStatus = static_cast<FileStatus>(std::stoi(root.get_child("file_status").data()));
+
+    this->is_file = root.get_child("is_file").data()=="true";
+}
+
 
 

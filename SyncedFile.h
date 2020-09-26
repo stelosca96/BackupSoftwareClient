@@ -39,6 +39,7 @@ public:
     SyncedFile();
 
     explicit SyncedFile(std::string path);
+    SyncedFile(const std::string& JSON, bool mode);
     SyncedFile(const std::string& path, const std::string& JSON);
     SyncedFile(std::string path, FileStatus fileStatus);
     SyncedFile(SyncedFile const &syncedFile);

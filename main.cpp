@@ -26,16 +26,121 @@ void saveMap(){
         fw_ptr->saveMap();
 }
 
+void uploadToServer(std::unique_ptr<Client> client){
+    // continuo ad estrarre file dalla coda finchè il programma non termina
+    while (!uploadJobs.producer_is_ended()) {
+        std::shared_ptr<SyncedFile> syncedFile = uploadJobs.get();
+
+        // la classe fileJobs ritorna un nullptr se la coda è vuota e il programma deve terminare
+        if (syncedFile != nullptr) {
+            try {
+                // 3. invio il json del synced file
+                std::string fileJSON(syncedFile->getJSON());
+                std::cout << fileJSON << std::endl;
+                client->sendJSON(fileJSON);
+                std::string resp = client->getResp();
+                if (resp == "OK") {
+                    syncedFile->setSynced();
+                    saveMap();
+                    // se il file è già sul server ho concluso il mio lavoro
+                    std::cout << "Sincronizzazione file riuscita." << std::endl;
+                } else if (resp == "NO") {
+                    // se il file non è già sul server devo inviarlo
+                    std::cout << "Il server ha richiesto l'invio del file." << std::endl;
+                    client->sendFile(syncedFile);
+                    resp = client->getResp();
+                    if (resp == "OK") {
+                        syncedFile->setSynced();
+                        saveMap();
+                        // se il file è stato caricato correttamente ho concluso il mio lavoro
+                        std::cout << "Sincronizzazione file riuscita." << std::endl;
+                    } else {
+                        // "KO" si sono verificati errori, il client deve rieffettuare l'invio a partire dal punto 3.1
+                        // se si verificano errori riaggiungo il file alla lista dopo avere ricalcolato hash e size
+                        std::cout << "Si è verificato un errore nella coerenza dei dati." << std::endl;
+                        syncedFile->update_file_data();
+                        uploadJobs.put(syncedFile);
+                    }
+                } else {
+                    // "KO" si sono verificati errori, il client deve rieffettuare l'invio a partire dal punto 3.1
+                    // se si verificano errori riaggiungo il file alla lista dopo avere ricalcolato hash e size
+                    std::cout << "Si è verificato un errore nella coerenza dei dati." << std::endl;
+                    syncedFile->update_file_data();
+                    uploadJobs.put(syncedFile);
+                }
+            }
+                // todo: potrei genarilizzare con una std::runtimeError
+            catch (dataException &e1) {
+                std::cout << e1.what() << std::endl;
+                syncedFile->update_file_data();
+                uploadJobs.put(syncedFile);
+            }
+            catch (filesystemException &e2) {
+                std::cout << e2.what() << std::endl;
+                syncedFile->update_file_data();
+                uploadJobs.put(syncedFile);
+            }
+            catch (socketException &e3) {
+                // riaggiungo il file su cui si è verificato l'errore alla coda
+                syncedFile->update_file_data();
+                uploadJobs.put(syncedFile);
+                throw e3;
+            }
+        }
+    }
+}
+
+// todo: vedere come gestire la mappa dei file
+// caso 1: ignorare il problema
+// caso 2: ricalcolarla durante il sync => soluzione migliore
+        // cancello la mappa
+        // per ogni file prima della ok lo aggiungo alla mappa
+        // alla end salvo la mappa su file
+void sync(std::unique_ptr<Client> client){
+    while (true) {
+        try {
+            std::string mex = client->readString();
+            if(mex=="END") {
+                break;
+            }
+            std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(mex, true);
+            // todo: devo controllare se quel file ul filesystem è uguale
+            // todo: cosa succede se il file non è presente, mettere un controllo
+            if(sfp->getHash() != SyncedFile::CalcSha256(sfp->getPath())) {
+                client->sendResp("NO");
+                client->getFile(sfp);
+                // il trasferimento deve andare a buon fine, se si verificano problemi
+                // lancio un'eccezione e quando la catcho manderò una resp KO
+                client->sendResp("OK");
+            } else client->sendResp("OK");
+        }
+            // todo: potrei genarilizzare con una std::runtimeError
+        catch (dataException &e1) {
+            client->sendResp("KO");
+            std::cout << e1.what() << std::endl;
+        }
+        catch (filesystemException &e2) {
+            client->sendResp("KO");
+            std::cout << e2.what() << std::endl;
+        }
+        catch (socketException &e3) {
+            // riaggiungo il file su cui si è verificato l'errore alla coda
+            throw e3;
+        }
+    }
+}
+
 // todo: caricare impostazioni da file .config
 // address, port, directory to watch, cert_path, username, password
-void upload_to_server(
+void connectServer(
         const std::string& serverAddress,
         short serverPort,
         unsigned sleep_time,
         unsigned timeoutValue,
         const std::string& username,
         const std::string& password,
-        const std::string& crtPath
+        const std::string& crtPath,
+        const bool modeBackup
 ){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
@@ -48,80 +153,30 @@ void upload_to_server(
 //                auto endpoints = resolver.resolve("127.0.0.1", "9999");
                 boost::asio::ip::tcp::endpoint endpoint(
                         boost::asio::ip::address::from_string(serverAddress), serverPort);
-                Client client(io_context, ctx, endpoint, timeoutValue);
-                client.connect();
+                std::unique_ptr<Client> client = std::make_unique<Client>(io_context, ctx, endpoint, timeoutValue);
+                client->connect();
                 User user(username, password);
                 // 1. invio le credenziali
-                client.sendJSON(user.getJSON());
+                client->sendJSON(user.getJSON());
                 // 2. se il server non risponde OK l'auth non è andata a buon fine e chiudo il programma, ma se ricevo dati diversi da OK, KO, NO
-                if (client.getResp() != "OK") {
+                if (client->getResp() != "OK") {
                     std::cout << "Utente già registrato o password errata." << std::endl;
                     exit(-2);
                 }
                 std::cout << "Login riuscito" << std::endl;
 
-                // continuo ad estrarre file dalla coda finchè il programma non termina
-                while (!uploadJobs.producer_is_ended()) {
-                    std::shared_ptr<SyncedFile> syncedFile = uploadJobs.get();
-
-                    // la classe fileJobs ritorna un nullptr se la coda è vuota e il programma deve terminare
-                    if (syncedFile != nullptr) {
-                        try {
-                            // 3. invio il json del synced file
-                            std::string fileJSON(syncedFile->getJSON());
-                            std::cout << fileJSON << std::endl;
-                            client.sendJSON(fileJSON);
-                            std::string resp = client.getResp();
-                            if (resp == "OK") {
-                                syncedFile->setSynced();
-                                saveMap();
-                                // se il file è già sul server ho concluso il mio lavoro
-                                std::cout << "Sincronizzazione file riuscita." << std::endl;
-                            } else if (resp == "NO") {
-                                // se il file non è già sul server devo inviarlo
-                                std::cout << "Il server ha richiesto l'invio del file." << std::endl;
-                                client.sendFile(syncedFile);
-                                resp = client.getResp();
-                                if (resp == "OK") {
-                                    syncedFile->setSynced();
-                                    saveMap();
-                                    // se il file è stato caricato correttamente ho concluso il mio lavoro
-                                    std::cout << "Sincronizzazione file riuscita." << std::endl;
-                                } else {
-                                    // "KO" si sono verificati errori, il client deve rieffettuare l'invio a partire dal punto 3.1
-                                    // se si verificano errori riaggiungo il file alla lista dopo avere ricalcolato hash e size
-                                    std::cout << "Si è verificato un errore nella coerenza dei dati." << std::endl;
-                                    syncedFile->update_file_data();
-                                    uploadJobs.put(syncedFile);
-                                }
-                            } else {
-                                // "KO" si sono verificati errori, il client deve rieffettuare l'invio a partire dal punto 3.1
-                                // se si verificano errori riaggiungo il file alla lista dopo avere ricalcolato hash e size
-                                std::cout << "Si è verificato un errore nella coerenza dei dati." << std::endl;
-                                syncedFile->update_file_data();
-                                uploadJobs.put(syncedFile);
-                            }
-                        }
-                            // todo: potrei genarilizzare con una std::runtimeError
-                        catch (dataException &e1) {
-                            std::cout << e1.what() << std::endl;
-                            syncedFile->update_file_data();
-                            uploadJobs.put(syncedFile);
-                        }
-                        catch (filesystemException &e2) {
-                            std::cout << e2.what() << std::endl;
-                            syncedFile->update_file_data();
-                            uploadJobs.put(syncedFile);
-                        }
-                        catch (socketException &e3) {
-                            // riaggiungo il file su cui si è verificato l'errore alla coda
-                            syncedFile->update_file_data();
-                            uploadJobs.put(syncedFile);
-                            throw e3;
-                        }
-                    }
+                // invio la modalità al server
+                client->sendMode(modeBackup);
+                //attendo la risposta
+                if(client->getResp() != "OK"){
+                    std::cout << "Errore ricezione modalità." << std::endl;
+                    exit(-3);
                 }
-                client.closeConnection();
+                if (modeBackup)
+                    uploadToServer(std::move(client));
+                else
+                    sync(std::move(client));
+//                client.closeConnection();
             }
             catch (socketException &e1) {
                 // in caso di timeout o errori socket la chiudo e ricreo la connessione
@@ -200,12 +255,15 @@ void file_watcher(std::string& username, std::string& path, unsigned fileRescanT
 int main() {
     std::string username, password, path, serverAddress, crtPath;
     short serverPort;
+    bool modeBackup;
     unsigned retryTime, timeoutTime, fileRescanTime;
     try{
         pt::ptree root;
         pt::read_json("config.json", root);
         username = root.get_child("username").data();
         password = root.get_child("password").data();
+        // modeBackup a true se nel file di config scrivo backup nel campo mode
+        modeBackup = root.get_child("mode").data() == "backup";
         path = root.get_child("path").data();
         serverAddress = root.get_child("serverAddress").data();
         crtPath = root.get_child("crtPath").data();
@@ -219,8 +277,11 @@ int main() {
         std::cerr << error.what() << std::endl;
         exit(-1);
     }
-
-    std::thread t1(upload_to_server, serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath);
-    file_watcher(username, path, fileRescanTime);
-    t1.join();
+    if(modeBackup){
+        std::thread t1(connectServer, serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath, modeBackup);
+        file_watcher(username, path, fileRescanTime);
+        t1.join();
+    } else {
+        connectServer(serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath, modeBackup);
+    }
 }
