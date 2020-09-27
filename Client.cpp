@@ -269,3 +269,11 @@ void Client::getFile(std::shared_ptr<SyncedFile> sfp) {
     std::cout << "File chiuso" << std::endl;
     file.close();
 }
+
+void Client::sendMode(bool mode) {
+    //BACKUP MODE
+    if(mode)
+        sendString("MODE_BACK");
+    else
+        sendString("MODE_SYNC");
+}

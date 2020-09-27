@@ -82,6 +82,26 @@ shared_mutex
 SyncedFile.h
 /home/pierluigi/CLionProjects/BackupSoftwareClient/SyncedFile.h
 
+/home/pierluigi/CLionProjects/BackupSoftwareClient/SyncedFile.cpp
+openssl/sha.h
+-
+fstream
+-
+iomanip
+-
+utility
+-
+SyncedFile.h
+/home/pierluigi/CLionProjects/BackupSoftwareClient/SyncedFile.h
+boost/property_tree/json_parser.hpp
+-
+filesystem
+-
+iostream
+-
+mutex
+-
+
 /home/pierluigi/CLionProjects/BackupSoftwareClient/SyncedFile.h
 string
 -
@@ -93,6 +113,12 @@ atomic
 -
 shared_mutex
 -
+
+/home/pierluigi/CLionProjects/BackupSoftwareClient/UploadJobs.cpp
+iostream
+-
+UploadJobs.h
+/home/pierluigi/CLionProjects/BackupSoftwareClient/UploadJobs.h
 
 /home/pierluigi/CLionProjects/BackupSoftwareClient/UploadJobs.h
 queue

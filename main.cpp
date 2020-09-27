@@ -104,13 +104,15 @@ void sync(std::unique_ptr<Client> client){
                 break;
             }
             std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(mex, true);
-            // todo: devo controllare se quel file ul filesystem è uguale
+            // todo: devo controllare se quel file sul filesystem è uguale
             // todo: cosa succede se il file non è presente, mettere un controllo
             if(sfp->getHash() != SyncedFile::CalcSha256(sfp->getPath())) {
                 client->sendResp("NO");
                 client->getFile(sfp);
                 // il trasferimento deve andare a buon fine, se si verificano problemi
                 // lancio un'eccezione e quando la catcho manderò una resp KO
+
+                //todo: questa send resp viene chiamata senza sapere se ci sono stati errori nel trasferimento (?!)
                 client->sendResp("OK");
             } else client->sendResp("OK");
         }

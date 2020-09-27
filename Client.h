@@ -55,6 +55,8 @@ public:
 
     void sendJSON(const std::string& JSON);
     void sendResp(const std::string& resp);
+
+    void sendMode(bool mode);
 };
 
 
