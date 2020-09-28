@@ -237,6 +237,7 @@ void Client::getFile(std::shared_ptr<SyncedFile> sfp) {
         throw filesystemException("Can't open file: " + tempPath);
     ssize_t size_recv = 0;
     while(sfp->getFileSize()>size_recv){
+        std::size_t transferred;
         const ssize_t size_left = sfp->getFileSize()-size_recv;
 
         // scelgo la dimensione massima del buffer
@@ -247,24 +248,27 @@ void Client::getFile(std::shared_ptr<SyncedFile> sfp) {
                 boost::asio::buffer(data_, buff_size),
                 [&](const boost::system::error_code& result_error,
                     std::size_t bytes_transferred){
-                        error = result_error;
-                        size_recv+=bytes_transferred;
-                        // todo: non so se farlo nella callback o dopo il run
-                    if(!error){
-                        // se non si sono verificati errori scrivo il file
-                        data_[bytes_transferred] = '\0';
-                        file.write(data_, bytes_transferred);
-                    } else {
-                        data_[bytes_transferred] = '\0';
-                        file.close();
-                        std::cout << "Errore ricezione file" << std::endl;
-                        std::filesystem::remove(tempPath);
-                        throw dataException("File recv error");
-                        // altrimenti gestisco l'errore
-                    }
+                    error = result_error;
+                    transferred = bytes_transferred;
+                    size_recv+=bytes_transferred;
                 });
-        moveFile(sfp, tempPath);
+
         run(this->timeout_value);
+
+        if(!error){
+            // se non si sono verificati errori scrivo il file
+            data_[transferred] = '\0';
+            file.write(data_, transferred);
+        } else {
+            data_[transferred] = '\0';
+            file.close();
+            std::cout << "Errore ricezione file" << std::endl;
+            std::filesystem::remove(tempPath);
+            throw dataException("File recv error");
+            // altrimenti gestisco l'errore
+        }
+
+        moveFile(sfp, tempPath);
     }
     std::cout << "File chiuso" << std::endl;
     file.close();
