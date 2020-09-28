@@ -1,1 +1,0 @@
-/usr/bin/c++   -pthread -g   CMakeFiles/FileWatcher.dir/main.cpp.o CMakeFiles/FileWatcher.dir/FileWatcher.cpp.o CMakeFiles/FileWatcher.dir/SyncedFile.cpp.o CMakeFiles/FileWatcher.dir/UploadJobs.cpp.o CMakeFiles/FileWatcher.dir/Client.cpp.o CMakeFiles/FileWatcher.dir/User.cpp.o  -o FileWatcher  -lssl -lcrypto 
