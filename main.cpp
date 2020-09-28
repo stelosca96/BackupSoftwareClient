@@ -176,8 +176,12 @@ void connectServer(
                 }
                 if (modeBackup)
                     uploadToServer(std::move(client));
-                else
+                else {
+                    std::cout << "RICEVUTO OK PER SYNC MODE" << std::endl;
                     sync(std::move(client));
+                    std::filesystem::remove_all("./temp");
+                    break;
+                }
 //                client.closeConnection();
             }
             catch (socketException &e1) {

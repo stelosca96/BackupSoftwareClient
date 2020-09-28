@@ -219,15 +219,12 @@ std::string Client::tempFilePath(){
 
 void Client::moveFile(const std::shared_ptr<SyncedFile>& sfp, const std::string& tempPath){
     // todo: se usiamo i percorsi relativi o no cambia come gestire la posizione di salvataggio
-    std::filesystem::path user_path("./");
-    user_path += username;
-    std::filesystem::path path(sfp->getPath());
-    user_path += path;
-    std::filesystem::create_directories(user_path.parent_path());
-    std::filesystem::copy_file(tempPath, user_path, std::filesystem::copy_options::overwrite_existing);
-    if(std::filesystem::is_directory(tempPath) || std::filesystem::is_regular_file(tempPath))
-        std::filesystem::remove(tempPath);
-    std::cout << user_path.parent_path() << std::endl;
+    if(std::filesystem::is_regular_file(tempPath))
+        std::filesystem::remove(sfp->getPath());
+    //Muove direttamente i file da un path all' altro
+    std::filesystem::rename(tempPath, sfp->getPath());
+    std::filesystem::remove(tempPath);
+    std::cout << sfp->getPath() << std::endl;
 }
 
 void Client::getFile(std::shared_ptr<SyncedFile> sfp) {

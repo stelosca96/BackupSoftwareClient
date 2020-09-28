@@ -8,5 +8,5 @@
   "retryTime": 30,
   "timeoutTime": 2,
   "fileRescanTime": 5,
-  "mode": "backup"
+  "mode": "sync"
 }
