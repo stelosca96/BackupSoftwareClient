@@ -151,6 +151,7 @@ void sync(std::unique_ptr<Client> client, const std::string& basePath, const std
             throw e3;
         }
     }
+    std::filesystem::remove_all("./temp");
 }
 
 // address, port, directory to watch, cert_path, username, password
@@ -206,11 +207,13 @@ void connectServer(
 //                client.closeConnection();
             }
             catch (socketException &e1) {
+                //todo: vedere se è finita perchè la sync è andata a buon fine o perchè ci son stati errori
+                if(!modeBackup)
+                    break;
                 // in caso di timeout o errori socket la chiudo e ricreo la connessione
                 std::cout << e1.what() << std::endl;
                 std::cout << "Ritento la connessione dopo l'errore" << std::endl;
                 sleep(sleep_time);
-
             }
         }
     }
@@ -278,19 +281,17 @@ void file_watcher(std::string& username, std::string& path, unsigned fileRescanT
 }
 
 
-int main() {
+int main(int argc, char **argv) {
     std::string username, password, path, serverAddress, crtPath;
     short serverPort;
-    bool modeBackup;
     unsigned retryTime, timeoutTime, fileRescanTime;
     try{
         pt::ptree root;
         pt::read_json("config.json", root);
         username = root.get_child("username").data();
         password = root.get_child("password").data();
-        // modeBackup a true se nel file di config scrivo backup nel campo mode
-        modeBackup = root.get_child("mode").data() == "backup";
         path = root.get_child("path").data();
+        path = get_absolute_path(path);
         serverAddress = root.get_child("serverAddress").data();
         crtPath = root.get_child("crtPath").data();
         serverPort = std::stoi(root.get_child("serverPort").data());
@@ -301,15 +302,30 @@ int main() {
     } catch (std::runtime_error &error) {
         std::cerr << "Errore caricamento file configurazione" << std::endl;
         std::cerr << error.what() << std::endl;
-        exit(-1);
+        return -1;
     }
-    path = get_absolute_path(path).string();
 
-    if(modeBackup){
-        std::thread t1(connectServer, serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath, modeBackup, path);
-        file_watcher(username, path, fileRescanTime);
-        t1.join();
-    } else {
-        connectServer(serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath, modeBackup, path);
+    if(argc > 2){
+        std::cerr << "Errore numero parametri" << std::endl;
+        return -1;
     }
+
+    std::string flag("-b");
+    if(argc == 2)
+        flag = argv[1];
+
+    if(flag != "-b" && flag != "-r"){
+        std::cerr << "Unknown flag: "<< flag << std::endl;
+        return -1;
+    }
+
+    //Se in modalità restore prima scarica tutti i file
+    //E poi si avvia in modalità backup
+    if(flag == "-r"){
+        connectServer(serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath, false, path);
+    }
+    std::thread t1(connectServer, serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath,
+                   true, path);
+    file_watcher(username, path, fileRescanTime);
+    t1.join();
 }

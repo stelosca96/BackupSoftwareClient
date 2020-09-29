@@ -7,6 +7,5 @@
   "serverPort": 9999,
   "retryTime": 30,
   "timeoutTime": 2,
-  "fileRescanTime": 5,
-  "mode": "sync"
+  "fileRescanTime": 5
 }
