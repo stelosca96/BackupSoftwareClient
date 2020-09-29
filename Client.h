@@ -51,12 +51,13 @@ public:
     std::string readString();
     void closeConnection();
     std::string getResp();
-    void getFile(std::shared_ptr<SyncedFile> sfp);
+    void getFile(const std::shared_ptr<SyncedFile>& sfp);
 
     void sendJSON(const std::string& JSON);
     void sendResp(const std::string& resp);
 
     void sendMode(bool mode);
+
 };
 
 

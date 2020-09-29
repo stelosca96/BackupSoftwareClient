@@ -96,23 +96,22 @@ void uploadToServer(std::unique_ptr<Client> client){
         // cancello la mappa
         // per ogni file prima della ok lo aggiungo alla mappa
         // alla end salvo la mappa su file
-void sync(std::unique_ptr<Client> client){
+void sync(std::unique_ptr<Client> client, const std::string& basePath){
     while (true) {
         try {
             std::string mex = client->readString();
             if(mex=="END") {
                 break;
             }
-            std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(mex, true);
+            std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(mex, basePath, true);
+            // todo: controllo che la cartella sia la cartella sincronizzata
             // todo: devo controllare se quel file sul filesystem è uguale
             // todo: cosa succede se il file non è presente, mettere un controllo
-            if(sfp->getHash() != SyncedFile::CalcSha256(sfp->getPath())) {
+            if(sfp->getHash() != SyncedFile::CalcSha256(sfp->getFilePath())) {
                 client->sendResp("NO");
                 client->getFile(sfp);
                 // il trasferimento deve andare a buon fine, se si verificano problemi
                 // lancio un'eccezione e quando la catcho manderò una resp KO
-
-                //todo: questa send resp viene chiamata senza sapere se ci sono stati errori nel trasferimento (?!)
                 client->sendResp("OK");
             } else client->sendResp("OK");
         }
@@ -132,7 +131,6 @@ void sync(std::unique_ptr<Client> client){
     }
 }
 
-// todo: caricare impostazioni da file .config
 // address, port, directory to watch, cert_path, username, password
 void connectServer(
         const std::string& serverAddress,
@@ -142,7 +140,8 @@ void connectServer(
         const std::string& username,
         const std::string& password,
         const std::string& crtPath,
-        const bool modeBackup
+        const bool modeBackup,
+        const std::string& basePathString
 ){
     // todo: gestire eccezioni ed eventualmente mutua esclusione
     try {
@@ -178,7 +177,7 @@ void connectServer(
                     uploadToServer(std::move(client));
                 else {
                     std::cout << "RICEVUTO OK PER SYNC MODE" << std::endl;
-                    sync(std::move(client));
+                    sync(std::move(client), basePathString);
                     std::filesystem::remove_all("./temp");
                     break;
                 }
@@ -230,14 +229,14 @@ std::filesystem::path get_absolute_path(const std::string& path){
 
 void file_watcher(std::string& username, std::string& path, unsigned fileRescanTime){
     // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
-//    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir", std::chrono::milliseconds(5000));
+//    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir3", std::chrono::milliseconds(5000));
     std::string abs_path = get_absolute_path(path).string();
     fw_ptr = std::make_shared<FileWatcher>(username, abs_path, std::chrono::seconds(fileRescanTime));
     // Start monitoring a folder for changes and (in case of changes)
     // run a user provided lambda function
     fw_ptr->start([] (const std::shared_ptr<SyncedFile>& sfp, FileStatus status) -> void {
         // Process only regular files, all other file types are ignored
-        if(!std::filesystem::is_regular_file(std::filesystem::path(sfp->getPath())) && status != FileStatus::erased) {
+        if(!std::filesystem::is_regular_file(std::filesystem::path(sfp->getFilePath())) && status != FileStatus::erased) {
             return;
         }
         switch(status) {
@@ -284,10 +283,10 @@ int main() {
         exit(-1);
     }
     if(modeBackup){
-        std::thread t1(connectServer, serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath, modeBackup);
+        std::thread t1(connectServer, serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath, modeBackup, path);
         file_watcher(username, path, fileRescanTime);
         t1.join();
     } else {
-        connectServer(serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath, modeBackup);
+        connectServer(serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath, modeBackup, path);
     }
 }

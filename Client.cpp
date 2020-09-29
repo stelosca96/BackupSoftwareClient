@@ -132,7 +132,7 @@ void Client::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
     ssize_t size_read = 0;
 
     const bool isFile = syncedFile->isFile() && syncedFile->getFileStatus()!=FileStatus::erased;
-    std::ifstream file_to_send(syncedFile->getPath(), std::ios::binary);
+    std::ifstream file_to_send(syncedFile->getFilePath(), std::ios::binary);
 
     if(isFile) {
         // se il file non esiste ignoro il problema ed esco, alla prossima scansione del file system verrà notata la sua assenza
@@ -207,6 +207,8 @@ void Client::closeConnection() {
     this->socket_.lowest_layer().close();
 }
 
+
+
 // genero un nome temporaneo per il file dato da tempo corrente + id thread
 std::string Client::tempFilePath(){
     std::filesystem::create_directory("temp/");
@@ -218,16 +220,18 @@ std::string Client::tempFilePath(){
 }
 
 void Client::moveFile(const std::shared_ptr<SyncedFile>& sfp, const std::string& tempPath){
+    std::filesystem::path path(sfp->getFilePath());
     // todo: se usiamo i percorsi relativi o no cambia come gestire la posizione di salvataggio
     if(std::filesystem::is_regular_file(tempPath))
-        std::filesystem::remove(sfp->getPath());
+        std::filesystem::remove(path);
+    std::filesystem::create_directories(path.parent_path());
     //Muove direttamente i file da un path all' altro
-    std::filesystem::rename(tempPath, sfp->getPath());
+    std::filesystem::rename(tempPath, path);
     std::filesystem::remove(tempPath);
     std::cout << sfp->getPath() << std::endl;
 }
 
-void Client::getFile(std::shared_ptr<SyncedFile> sfp) {
+void Client::getFile(const std::shared_ptr<SyncedFile>& sfp) {
     std::string tempPath(tempFilePath());
     auto file = std::ofstream(tempPath, std::ios::binary);
     if(!file.is_open())

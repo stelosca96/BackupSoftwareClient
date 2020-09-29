@@ -42,7 +42,7 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
         auto it = files_to_watch.begin();
         while (it != files_to_watch.end()) {
             if (!std::filesystem::exists(it->first)) {
-                SyncedFile sf(it->first, FileStatus::erased);
+                SyncedFile sf(it->first, path_to_watch, FileStatus::erased);
                 action(std::make_shared<SyncedFile>(sf), FileStatus::erased);
                 it = files_to_watch.erase(it);
             }
@@ -51,10 +51,12 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
         }
         // Check if a file was created or modified
         for(auto &file : std::filesystem::recursive_directory_iterator(path_to_watch)) {
-//            auto current_file_last_write_time = std::filesystem::last_write_time(file);
+
+            //            auto current_file_last_write_time = std::filesystem::last_write_time(file);
             // File creation
             if(!contains(file.path().string())) {
-                std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(file.path().string(), FileStatus::created);
+
+                std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(file.path().string(), path_to_watch, FileStatus::created);
                 this->files_to_watch[file.path().string()] = sfp;
                 action(sfp, FileStatus::created);
                 // File modification
@@ -101,7 +103,7 @@ void FileWatcher::loadMap() {
     for(const auto& p: root){
         std::stringstream ss;
         pt::json_parser::write_json(ss, p.second);
-        this->files_to_watch[p.first] = std::make_shared<SyncedFile>(p.first, ss.str());
+        this->files_to_watch[p.first] = std::make_shared<SyncedFile>(ss.str(), path_to_watch, true);
         this->files_to_watch[p.first]->setSynced();
 //        std::cout << p.first << std::endl;
     }

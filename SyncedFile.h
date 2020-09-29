@@ -8,6 +8,7 @@
 
 #include <string>
 #include <optional>
+#include <filesystem>
 #include <boost/property_tree/ptree.hpp>
 #include <atomic>
 #include <shared_mutex>
@@ -17,6 +18,7 @@ enum class FileStatus {created, modified, erased, not_valid};
 class SyncedFile {
 private:
     std::string path;
+    std::string filePath;
     std::string hash = "";
     unsigned long file_size = 0;
     bool is_file;
@@ -33,15 +35,16 @@ private:
     bool is_syncing = false;
     std::atomic<bool> synced = false;
     boost::property_tree::basic_ptree<std::string, std::string> getPtree();
+    std::string diffPath(std::string basePath, const std::string& filePath);
 
 public:
     //todo: togliere costruttore vuoto
     SyncedFile();
 
-    explicit SyncedFile(std::string path);
-    SyncedFile(const std::string& JSON, bool mode);
-    SyncedFile(const std::string& path, const std::string& JSON);
-    SyncedFile(std::string path, FileStatus fileStatus);
+//    explicit SyncedFile(std::string path);
+    SyncedFile(const std::string &JSON, const std::string &basePath, bool mode);
+//    SyncedFile(const std::string& path, const std::string& JSON);
+    SyncedFile(const std::string& path, const std::string& basePath, FileStatus fileStatus);
     SyncedFile(SyncedFile const &syncedFile);
 
     void update_file_data();
@@ -53,6 +56,7 @@ public:
     bool operator!=(const SyncedFile &rhs) const;
 
     [[nodiscard]] const std::string &getPath();
+    [[nodiscard]] std::string getFilePath();
     [[nodiscard]] const std::string &getHash();
     [[nodiscard]] FileStatus getFileStatus();
     [[nodiscard]] unsigned long getFileSize();
