@@ -217,7 +217,7 @@ SyncedFile::SyncedFile(const std::string &JSON, const std::string &basePath, boo
 
     if (modeSync){
         this->path = root.get_child("path").data();
-        std::filesystem::path bp(basePath);
+        std::filesystem::path bp(basePath[basePath.size()-1]== '/' ? basePath.substr(0, basePath.size()-1) : basePath);
         bp += this->path;
         this->filePath = bp.string();
     } else {

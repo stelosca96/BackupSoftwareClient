@@ -90,17 +90,38 @@ void uploadToServer(std::unique_ptr<Client> client){
     }
 }
 
+
+void saveSyncMap(const std::string& username, const std::unordered_map<std::string, std::shared_ptr<SyncedFile>>& synced_files) {
+    pt::ptree pt;
+    // accedo alla mappa solo in lettura, quindi uso uno shared
+    // Provo a prendere il lock per salvare la mappa
+    for(auto const& [key, val] : synced_files){
+        val->setSynced();
+        auto map_value = val->getMapValue();
+        // gestire sincronizzazione,
+        // sto usando l'oggetto syncedFile in due thread contemporaneamente
+        if(map_value.has_value()){
+            pt.push_back(map_value.value());
+        }
+    }
+    pt::json_parser::write_json(username + "_synced_maps.json", pt);
+}
+
+
 // todo: vedere come gestire la mappa dei file
 // caso 1: ignorare il problema
 // caso 2: ricalcolarla durante il sync => soluzione migliore
         // cancello la mappa
         // per ogni file prima della ok lo aggiungo alla mappa
         // alla end salvo la mappa su file
-void sync(std::unique_ptr<Client> client, const std::string& basePath){
+void sync(std::unique_ptr<Client> client, const std::string& basePath, const std::string& username){
+    std::unordered_map<std::string, std::shared_ptr<SyncedFile>> synced_files;
+
     while (true) {
         try {
             std::string mex = client->readString();
             if(mex=="END") {
+                saveSyncMap(username, synced_files);
                 break;
             }
             std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(mex, basePath, true);
@@ -114,6 +135,7 @@ void sync(std::unique_ptr<Client> client, const std::string& basePath){
                 // lancio un'eccezione e quando la catcho manderò una resp KO
                 client->sendResp("OK");
             } else client->sendResp("OK");
+            synced_files[sfp->getFilePath()] = sfp;
         }
             // todo: potrei genarilizzare con una std::runtimeError
         catch (dataException &e1) {
@@ -177,7 +199,7 @@ void connectServer(
                     uploadToServer(std::move(client));
                 else {
                     std::cout << "RICEVUTO OK PER SYNC MODE" << std::endl;
-                    sync(std::move(client), basePathString);
+                    sync(std::move(client), basePathString, username);
                     std::filesystem::remove_all("./temp");
                     break;
                 }
@@ -230,8 +252,7 @@ std::filesystem::path get_absolute_path(const std::string& path){
 void file_watcher(std::string& username, std::string& path, unsigned fileRescanTime){
     // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
 //    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir3", std::chrono::milliseconds(5000));
-    std::string abs_path = get_absolute_path(path).string();
-    fw_ptr = std::make_shared<FileWatcher>(username, abs_path, std::chrono::seconds(fileRescanTime));
+    fw_ptr = std::make_shared<FileWatcher>(username, path, std::chrono::seconds(fileRescanTime));
     // Start monitoring a folder for changes and (in case of changes)
     // run a user provided lambda function
     fw_ptr->start([] (const std::shared_ptr<SyncedFile>& sfp, FileStatus status) -> void {
@@ -282,6 +303,8 @@ int main() {
         std::cerr << error.what() << std::endl;
         exit(-1);
     }
+    path = get_absolute_path(path).string();
+
     if(modeBackup){
         std::thread t1(connectServer, serverAddress, serverPort, retryTime, timeoutTime, username, password, crtPath, modeBackup, path);
         file_watcher(username, path, fileRescanTime);
