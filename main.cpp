@@ -111,9 +111,9 @@ void saveSyncMap(const std::string& username, const std::unordered_map<std::stri
 // todo: vedere come gestire la mappa dei file
 // caso 1: ignorare il problema
 // caso 2: ricalcolarla durante il sync => soluzione migliore
-        // cancello la mappa
-        // per ogni file prima della ok lo aggiungo alla mappa
-        // alla end salvo la mappa su file
+// cancello la mappa
+// per ogni file prima della ok lo aggiungo alla mappa
+// alla end salvo la mappa su file
 void sync(std::unique_ptr<Client> client, const std::string& basePath, const std::string& username){
     std::unordered_map<std::string, std::shared_ptr<SyncedFile>> synced_files;
 
@@ -174,7 +174,7 @@ void connectServer(
             try {
                 boost::asio::io_context io_context;
 //                tcp::resolver resolver(io_context);
-//                auto endpoints = resolver.resolve("127.0.0.1", "9999");
+//                boost::asio::ip::tcp::endpoint endpoint = resolver.resolve(serverAddress, ""+serverPort)->endpoint();
                 boost::asio::ip::tcp::endpoint endpoint(
                         boost::asio::ip::address::from_string(serverAddress), serverPort);
                 std::unique_ptr<Client> client = std::make_unique<Client>(io_context, ctx, endpoint, timeoutValue);
@@ -252,32 +252,33 @@ std::filesystem::path get_absolute_path(const std::string& path){
     return std::filesystem::path(out);
 }
 
-void file_watcher(std::string& username, std::string& path, unsigned fileRescanTime){
-    // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
+void file_watcher(std::string& username, std::string& path, unsigned fileRescanTime) {
+        // Create a FileWatcher instance that will check the current folder for changes every 5 seconds
 //    fw_ptr = std::make_shared<FileWatcher>("/home/stefano/CLionProjects/FileWatcher/test_dir3", std::chrono::milliseconds(5000));
-    fw_ptr = std::make_shared<FileWatcher>(username, path, std::chrono::seconds(fileRescanTime));
-    // Start monitoring a folder for changes and (in case of changes)
-    // run a user provided lambda function
-    fw_ptr->start([] (const std::shared_ptr<SyncedFile>& sfp, FileStatus status) -> void {
-        // Process only regular files, all other file types are ignored
-        if(!std::filesystem::is_regular_file(std::filesystem::path(sfp->getFilePath())) && status != FileStatus::erased) {
-            return;
-        }
-        switch(status) {
-            case FileStatus::created:
-                std::cout << "File created: " << sfp->to_string() << '\n';
-                break;
-            case FileStatus::modified:
-                std::cout << "File modified: " << sfp->to_string() << '\n';
-                break;
-            case FileStatus::erased:
-                std::cout << "File erased: " << sfp->to_string() << '\n';
-                break;
-            default:
-                std::cout << "Error! Unknown file status.\n";
-        }
-        add_to_queue(sfp);
-    });
+        fw_ptr = std::make_shared<FileWatcher>(username, path, std::chrono::seconds(fileRescanTime));
+        // Start monitoring a folder for changes and (in case of changes)
+        // run a user provided lambda function
+        fw_ptr->start([](const std::shared_ptr<SyncedFile> &sfp, FileStatus status) -> void {
+            // Process only regular files, all other file types are ignored
+            if (!std::filesystem::is_regular_file(std::filesystem::path(sfp->getFilePath())) &&
+                status != FileStatus::erased) {
+                return;
+            }
+            switch (status) {
+                case FileStatus::created:
+                    std::cout << "File created: " << sfp->to_string() << '\n';
+                    break;
+                case FileStatus::modified:
+                    std::cout << "File modified: " << sfp->to_string() << '\n';
+                    break;
+                case FileStatus::erased:
+                    std::cout << "File erased: " << sfp->to_string() << '\n';
+                    break;
+                default:
+                    std::cout << "Error! Unknown file status.\n";
+            }
+            add_to_queue(sfp);
+        });
 }
 
 
@@ -292,6 +293,8 @@ int main(int argc, char **argv) {
         password = root.get_child("password").data();
         path = root.get_child("path").data();
         path = get_absolute_path(path);
+        if (!std::filesystem::is_directory(path))
+            throw filesystemException("La directory da osservare non esiste");
         serverAddress = root.get_child("serverAddress").data();
         crtPath = root.get_child("crtPath").data();
         serverPort = std::stoi(root.get_child("serverPort").data());
