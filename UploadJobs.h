@@ -12,13 +12,12 @@
 #include <condition_variable>
 #include "SyncedFile.h"
 
-//todo: forse dovrei lavorare con dei weak ptr, devo considerare il caso in cui il file sia eliminato prima di caricarlo sul server
 class UploadJobs {
 private:
     std::queue<std::shared_ptr<SyncedFile>> queue;
     std::mutex mutex;
     std::condition_variable cv;
-    std::condition_variable cv_put;
+
     bool producer_ended = false;
 public:
     std::shared_ptr<SyncedFile> get();

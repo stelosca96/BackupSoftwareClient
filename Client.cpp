@@ -7,12 +7,8 @@
 #include "exceptions/dataException.h"
 #include "exceptions/filesystemException.h"
 #include <iostream>
-#include <unistd.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <bits/stdc++.h>
-#include <fstream>
 #include <utility>
 #include <boost/asio.hpp>
 
@@ -141,9 +137,13 @@ void Client::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
 //        std::cout << "Size to read: " << syncedFile->getFileSize() << std::endl;
         ssize_t size = 1;
         // ciclo finchè non ho letto tutto il file
+        unsigned int count_log = 0;
         while (size_read < syncedFile->getFileSize() && size>0) {
-            // todo: provare senza cast
-            file_to_send.read(reinterpret_cast<char *>(&buffer), sizeof(buffer));
+
+            if(!file_to_send.good())
+                throw filesystemException("Lettura del file fallita");
+
+            file_to_send.read(buffer, sizeof(buffer));
             size = file_to_send.gcount();
             boost::system::error_code error;
             boost::asio::async_write(socket_, boost::asio::buffer(buffer, size),
@@ -158,8 +158,14 @@ void Client::sendFile(const std::shared_ptr<SyncedFile>& syncedFile) {
                 throw socketException("timeout expired " + error.message());
             }
             size_read += size;
+
+            if(count_log != 0 && count_log % 100 == 0)
+                std::cout << syncedFile->getPath() << " " <<(size_read*100) / syncedFile->getFileSize() <<"%"<< std::endl;
+            count_log++;
+
         }
-        std::cout << "File chiuso" << std::endl;
+
+        std::cout << syncedFile->getPath() << " 100%"<< std::endl;
         file_to_send.close();
     }
 }
@@ -221,7 +227,7 @@ std::string Client::tempFilePath(){
 
 void Client::moveFile(const std::shared_ptr<SyncedFile>& sfp, const std::string& tempPath){
     std::filesystem::path path(sfp->getFilePath());
-    // todo: se usiamo i percorsi relativi o no cambia come gestire la posizione di salvataggio
+
     if(std::filesystem::is_regular_file(tempPath))
         std::filesystem::remove(path);
     std::filesystem::create_directories(path.parent_path());
@@ -237,9 +243,12 @@ void Client::getFile(const std::shared_ptr<SyncedFile>& sfp) {
     if(!file.is_open())
         throw filesystemException("Can't open file: " + tempPath);
     ssize_t size_recv = 0;
+    unsigned int count_log = 0;
     while(sfp->getFileSize()>size_recv){
         std::size_t transferred;
         const ssize_t size_left = sfp->getFileSize()-size_recv;
+
+
 
         // scelgo la dimensione massima del buffer
         const ssize_t buff_size = size_left<N ? size_left: N;
@@ -269,8 +278,11 @@ void Client::getFile(const std::shared_ptr<SyncedFile>& sfp) {
             // altrimenti gestisco l'errore
         }
 
-        moveFile(sfp, tempPath);
+        if(count_log != 0 && count_log % 100 == 0)
+            std::cout << sfp->getPath() << " " <<(size_recv*100) / sfp->getFileSize() <<"%"<< std::endl;
+        count_log++;
     }
+    moveFile(sfp, tempPath);
     std::cout << "File chiuso" << std::endl;
     file.close();
 }

@@ -22,9 +22,7 @@ private:
     std::string hash = "";
     unsigned long file_size = 0;
     bool is_file;
-    //todo: aggiungere ultima modifica
     std::shared_mutex mutex;
-    // todo: il fileStatus serve veramente? magari distinguere tra modificato/eliminato/non_valido
     FileStatus fileStatus = FileStatus::not_valid;
 
     // il file viene aggiunto alla coda di file da modificare,
@@ -38,22 +36,25 @@ private:
     std::string diffPath(std::string basePath, const std::string& filePath);
 
 public:
-    //todo: togliere costruttore vuoto
-    SyncedFile();
+
+    //SyncedFile();
 
 //    explicit SyncedFile(std::string path);
     SyncedFile(const std::string &JSON, const std::string &basePath, bool mode);
-//    SyncedFile(const std::string& path, const std::string& JSON);
     SyncedFile(const std::string& path, const std::string& basePath, FileStatus fileStatus);
-    SyncedFile(SyncedFile const &syncedFile);
+
+    //Deleted solo perchè non li usiamo e perchè evitiamo di usarli inconsciamente
+    SyncedFile(SyncedFile const &syncedFile)=delete;
+    SyncedFile(SyncedFile&& syncedFile)=delete;
+    SyncedFile& operator=(const SyncedFile& syncedFile)=delete;
+    SyncedFile&& operator=(SyncedFile&& syncedFile)=delete;
 
     void update_file_data();
     static std::string CalcSha256(const std::string& filename);
-    //todo: costruttore di copia e movimento
     std::string to_string();
 
-    bool operator==(const SyncedFile &rhs) const;
-    bool operator!=(const SyncedFile &rhs) const;
+    bool operator==( SyncedFile &rhs) ;
+    bool operator!=( SyncedFile &rhs) ;
 
     [[nodiscard]] const std::string &getPath();
     [[nodiscard]] std::string getFilePath();

@@ -36,14 +36,13 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
     // uso un unique lock perchè effettuo modifiche sulla mappa
     std::unique_lock map_lock(map_mutex, std::defer_lock);
     while(running) {
-        // Wait for "delay" milliseconds
-        std::this_thread::sleep_for(this->delay);
+
         map_lock.lock();
         auto it = files_to_watch.begin();
         while (it != files_to_watch.end()) {
             if (!std::filesystem::exists(it->first)) {
-                SyncedFile sf(it->first, path_to_watch, FileStatus::erased);
-                action(std::make_shared<SyncedFile>(sf), FileStatus::erased);
+                //SyncedFile sf(it->first, path_to_watch, FileStatus::erased);
+                action(std::make_shared<SyncedFile>(it->first, path_to_watch, FileStatus::erased), FileStatus::erased);
                 it = files_to_watch.erase(it);
             }
             else
@@ -71,6 +70,8 @@ void FileWatcher::start(const std::function<void(std::shared_ptr<SyncedFile>, Fi
             }
         }
         map_lock.unlock();
+        // Wait for "delay" milliseconds
+        std::this_thread::sleep_for(this->delay);
     }
 }
 

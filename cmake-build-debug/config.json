@@ -1,11 +1,11 @@
 {
-  "username": "stefano",
+  "username": "lorry",
   "password": "ciao1234",
   "path": "../test_dir",
-  "serverAddress": "127.0.0.1",
+  "serverAddress": "2.39.39.207",
   "crtPath": "../cert/user.crt",
   "serverPort": 9999,
   "retryTime": 30,
-  "timeoutTime": 2,
+  "timeoutTime": 10,
   "fileRescanTime": 5
 }

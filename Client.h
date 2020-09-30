@@ -18,13 +18,13 @@ using boost::asio::ip::tcp;
 
 class Client {
 private:
-    //todo: mettere una dimensione del buffer ragionevole
-    const static int N = 10240;
+    //100 KB
+    const static int N = 102400;
     char data_[N+1];
     const unsigned timeout_value;
 
-    // sto usando un puntatore C style perchè tanto l'ogetto verra distrutto
-    // todo: valutare weak_ptr
+    // sto usando un puntatore C style perchè tanto l'ogetto verra distrutto perchè non viene creato con new ma
+    // gli viene assegnato l'indirizzo di un oggetto creato su stack
     boost::asio::io_context *io_context_;
     boost::asio::ssl::stream<tcp::socket> socket_;
     boost::asio::deadline_timer deadline_;

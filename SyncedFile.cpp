@@ -29,7 +29,7 @@ SyncedFile::SyncedFile(const std::string& path, const std::string& basePath, Fil
 
 void SyncedFile::update_file_data() {
     std::unique_lock lock(mutex);
-    // todo: se il file non esiste marchiarlo come erased => da testare
+
     if(!(std::filesystem::is_regular_file(this->filePath) || (std::filesystem::is_directory(this->filePath)))){
         this->hash = "";
         this->fileStatus = FileStatus::erased;
@@ -75,32 +75,31 @@ std::string SyncedFile::CalcSha256(const std::string& filename){
     return sha_str.str();
 }
 
-bool SyncedFile::operator==(const SyncedFile &rhs) const {
-    // todo: devo acquisire i mutex di entrambi?
-//    std::scoped_lock lock(mutex, rhs.mutex);
+bool SyncedFile::operator==(SyncedFile &rhs) {
+    std::scoped_lock lock(mutex, rhs.mutex);
 //    std::shared_lock lock(mutex);
     return path == rhs.path &&
            hash == rhs.hash;
 }
 
-bool SyncedFile::operator!=(const SyncedFile &rhs) const {
+bool SyncedFile::operator!=(SyncedFile &rhs){
     return !(rhs == *this);
 }
 
-SyncedFile::SyncedFile(SyncedFile const &syncedFile) {
+/*SyncedFile::SyncedFile(SyncedFile const &syncedFile) {
     this->fileStatus = syncedFile.fileStatus;
     this->file_size = syncedFile.file_size;
     this->hash = syncedFile.hash;
     this->path = syncedFile.path;
     this->filePath = syncedFile.filePath;
     this->is_file = syncedFile.is_file;
-}
+}*/
 
-// todo: da rimuovere, ma se lo togli non funziona nulla
-SyncedFile::SyncedFile() {
+
+/*SyncedFile::SyncedFile() {
     fileStatus = FileStatus::not_valid;
     is_file = false;
-}
+}*/
 
 const std::string &SyncedFile::getPath(){
     std::shared_lock lock(mutex);
@@ -144,8 +143,6 @@ pt::ptree SyncedFile::getPtree(){
 
     root.put("path", this->path);
 
-    //todo: devo ricalcolare l'hash e la dimensione (nel caso il file sia stato modificato) o uso quello salvato?
-    // this->update_file_data();
     root.put("hash", this->hash);
     root.put("file_size", this->file_size);
     root.put("file_status", static_cast<int>(this->fileStatus));
@@ -172,25 +169,6 @@ unsigned long SyncedFile::getFileSize() {
     return file_size;
 }
 
-//SyncedFile::SyncedFile(const std::string& path, const std::string& JSON) {
-//    // costruttore => solo chi crea conosce il riferimento, non serve sincronizzare
-//    std::stringstream ss(JSON);
-//
-//    boost::property_tree::ptree root;
-//    boost::property_tree::read_json(ss, root);
-//    this->hash = root.get_child("hash").data();
-//
-//    this->path = root.get_child("path").data();
-//
-//    // If no conversion could be performed, an invalid_argument exception is thrown.
-//    this->file_size = std::stoul(root.get_child("file_size").data());
-//
-//    // If no conversion could be performed, an invalid_argument exception is thrown.
-//    this->fileStatus = static_cast<FileStatus>(std::stoi(root.get_child("file_status").data()));
-//
-//    this->is_file = root.get_child("is_file").data()=="true";
-//}
-
 void SyncedFile::setToSync() {
     this->synced.store(false);
 }
@@ -208,7 +186,6 @@ SyncedFile::getMapValue() {
 }
 
 SyncedFile::SyncedFile(const std::string &JSON, const std::string &basePath, bool modeSync) {
-    // todo: gestire eccezioni
     std::stringstream ss(JSON);
 
     boost::property_tree::ptree root;

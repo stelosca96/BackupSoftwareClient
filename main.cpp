@@ -69,7 +69,7 @@ void uploadToServer(std::unique_ptr<Client> client){
                     uploadJobs.put(syncedFile);
                 }
             }
-                // todo: potrei genarilizzare con una std::runtimeError
+
             catch (dataException &e1) {
                 std::cout << e1.what() << std::endl;
                 syncedFile->update_file_data();
@@ -108,9 +108,9 @@ void saveSyncMap(const std::string& username, const std::unordered_map<std::stri
 }
 
 
-// todo: vedere come gestire la mappa dei file
-// caso 1: ignorare il problema
-// caso 2: ricalcolarla durante il sync => soluzione migliore
+
+
+// Si ricalcola durante il sync
 // cancello la mappa
 // per ogni file prima della ok lo aggiungo alla mappa
 // alla end salvo la mappa su file
@@ -124,10 +124,8 @@ void sync(std::unique_ptr<Client> client, const std::string& basePath, const std
                 saveSyncMap(username, synced_files);
                 break;
             }
+
             std::shared_ptr<SyncedFile> sfp = std::make_shared<SyncedFile>(mex, basePath, true);
-            // todo: controllo che la cartella sia la cartella sincronizzata
-            // todo: devo controllare se quel file sul filesystem è uguale
-            // todo: cosa succede se il file non è presente, mettere un controllo
             if(sfp->getHash() != SyncedFile::CalcSha256(sfp->getFilePath())) {
                 client->sendResp("NO");
                 client->getFile(sfp);
@@ -137,7 +135,7 @@ void sync(std::unique_ptr<Client> client, const std::string& basePath, const std
             } else client->sendResp("OK");
             synced_files[sfp->getFilePath()] = sfp;
         }
-            // todo: potrei genarilizzare con una std::runtimeError
+
         catch (dataException &e1) {
             client->sendResp("KO");
             std::cout << e1.what() << std::endl;
@@ -145,10 +143,6 @@ void sync(std::unique_ptr<Client> client, const std::string& basePath, const std
         catch (filesystemException &e2) {
             client->sendResp("KO");
             std::cout << e2.what() << std::endl;
-        }
-        catch (socketException &e3) {
-            // riaggiungo il file su cui si è verificato l'errore alla coda
-            throw e3;
         }
     }
     std::filesystem::remove_all("./temp");
@@ -166,15 +160,14 @@ void connectServer(
         const bool modeBackup,
         const std::string& basePathString
 ){
-    // todo: gestire eccezioni ed eventualmente mutua esclusione
+    auto reconnect_timer = std::chrono::seconds(sleep_time);
+
     try {
         boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv13);
         ctx.load_verify_file(crtPath);
         while (true) {
             try {
                 boost::asio::io_context io_context;
-//                tcp::resolver resolver(io_context);
-//                boost::asio::ip::tcp::endpoint endpoint = resolver.resolve(serverAddress, ""+serverPort)->endpoint();
                 boost::asio::ip::tcp::endpoint endpoint(
                         boost::asio::ip::address::from_string(serverAddress), serverPort);
                 std::unique_ptr<Client> client = std::make_unique<Client>(io_context, ctx, endpoint, timeoutValue);
@@ -196,24 +189,22 @@ void connectServer(
                     std::cout << "Errore ricezione modalità." << std::endl;
                     exit(-3);
                 }
-                if (modeBackup)
+                if (modeBackup) {
+                    std::cout << "START BACK MODE" << std::endl;
                     uploadToServer(std::move(client));
+                }
                 else {
-                    std::cout << "RICEVUTO OK PER SYNC MODE" << std::endl;
+                    std::cout << "START SYNC MODE" << std::endl;
                     sync(std::move(client), basePathString, username);
-                    std::filesystem::remove_all("./temp");
+                    //La restore mode va eseguita una sola volta fino a quando non ha finito il restore
                     break;
                 }
-//                client.closeConnection();
             }
             catch (socketException &e1) {
-                //todo: vedere se è finita perchè la sync è andata a buon fine o perchè ci son stati errori
-                if(!modeBackup)
-                    break;
                 // in caso di timeout o errori socket la chiudo e ricreo la connessione
                 std::cout << e1.what() << std::endl;
                 std::cout << "Ritento la connessione dopo l'errore" << std::endl;
-                sleep(sleep_time);
+                std::this_thread::sleep_for(reconnect_timer);
             }
         }
     }
@@ -224,12 +215,10 @@ void connectServer(
 }
 
 void add_to_queue(const std::shared_ptr<SyncedFile>& sfp){
-    //todo: gestire sincronizzazione
     sfp->setToSync();
     uploadJobs.put(sfp);
 }
 
-// todo: qui si lavora con le split e le string, non so quanto sia sensato
 std::filesystem::path get_absolute_path(const std::string& path){
     auto p = std::filesystem::absolute(path).string();
     std::vector<std::string> split_path;
@@ -318,7 +307,7 @@ int main(int argc, char **argv) {
         flag = argv[1];
 
     if(flag != "-b" && flag != "-r"){
-        std::cerr << "Unknown flag: "<< flag << std::endl;
+        std::cerr << "Flag non riconosciuto: "<< flag << std::endl;
         return -1;
     }
 
