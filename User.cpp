@@ -12,7 +12,6 @@ namespace pt = boost::property_tree;
 User::User(const std::string &username, const std::string &password) : username(username), password(password) {}
 
 User::User(std::string JSON) {
-    // todo: gestire eccezioni
     std::stringstream ss(JSON);
     boost::property_tree::ptree root;
     boost::property_tree::read_json(ss, root);
